@@ -11,9 +11,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 import uvicorn
 
-from .config import settings
-from .hardware_detector import detect_hardware, get_device_info
-from .model_loader import get_models, unload_models, get_model_info
+from app.config import settings
+from app.hardware_detector import detect_hardware, get_device_info
+from app.model_loader import get_models, unload_models, get_model_info
 
 
 # Configure logging
@@ -219,7 +219,7 @@ async def create_transcription(
 
 if __name__ == "__main__":
     uvicorn.run(
-        "app.main:app",
+        app,
         host=settings.server.host,
         port=settings.server.port,
         reload=settings.server.debug,

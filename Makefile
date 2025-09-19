@@ -69,7 +69,7 @@ shell:
 
 download-models-dev:
 	@echo "📥 Downloading models in container..."
-	docker compose run --rm whisper-diarization-server-dev python download_models.py --whisper-model large-v2 --pyannote-model pyannote/speaker-diarization-3.1
+	docker compose run --rm whisper-diarization-server python download_models.py --whisper-model large-v2 --pyannote-model pyannote/speaker-diarization-3.1
 
 docker-build:
 	@echo "🔨 Building Docker image..."

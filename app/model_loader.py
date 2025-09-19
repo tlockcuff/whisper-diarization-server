@@ -9,8 +9,8 @@ import torch
 import whisper
 from pyannote.audio import Pipeline
 
-from .config import settings
-from .hardware_detector import get_optimal_device
+from app.config import settings
+from app.hardware_detector import get_optimal_device
 
 logger = logging.getLogger(__name__)
 
