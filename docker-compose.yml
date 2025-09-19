@@ -4,7 +4,7 @@ services:
       context: .
       args:
         - ASR_MODEL=${ASR_MODEL:-base}
-        - DIARIZATION_MODEL=${DIARIZATION_MODEL:-pyannote/speaker-diarization@2.1}
+        - DIARIZATION_MODEL=${DIARIZATION_MODEL:-pyannote/speaker-diarization-3.1}
         - HF_TOKEN=${HF_TOKEN}
         - CUDA_IMAGE_TAG=${CUDA_IMAGE_TAG:-12.3.2-cudnn9-devel-ubuntu22.04}
         - TORCH_CUDA_TAG=${TORCH_CUDA_TAG:-cu121}
@@ -13,7 +13,7 @@ services:
       - "8000:8000"
     environment:
       - ASR_MODEL=${ASR_MODEL:-base}
-      - DIARIZATION_MODEL=${DIARIZATION_MODEL:-pyannote/speaker-diarization@2.1}
+      - DIARIZATION_MODEL=${DIARIZATION_MODEL:-pyannote/speaker-diarization-3.1}
       - HF_TOKEN=${HF_TOKEN}
       - NVIDIA_VISIBLE_DEVICES=all
       - NVIDIA_DRIVER_CAPABILITIES=compute,utility

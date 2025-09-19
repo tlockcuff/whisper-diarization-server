@@ -32,7 +32,7 @@ app = FastAPI()
 
 # Load models at startup using environment variables
 asr_model_name = os.getenv("ASR_MODEL", "base")
-diarization_model_name = os.getenv("DIARIZATION_MODEL", "pyannote/speaker-diarization@2.1")
+diarization_model_name = os.getenv("DIARIZATION_MODEL", "pyannote/speaker-diarization-3.1")
 hf_token = os.getenv("HF_TOKEN")
 
 # Set up cache directories
@@ -127,7 +127,22 @@ def diarize_with_progress(audio_path, progress_callback=None):
     
     # Run the diarization pipeline (this is the main bottleneck)
     diarization_start = time.time()
-    diarization = diarization_pipeline(audio_path)
+    try:
+        diarization = diarization_pipeline(audio_path)
+    except Exception as e:
+        logger.warning(f"⚠️ Diarization failed on current device: {e}. Falling back to CPU...")
+        try:
+            # Move pipeline to CPU and retry
+            cpu_device = __import__("torch").device("cpu")
+            if hasattr(diarization_pipeline, "to"):
+                diarization_cpu = diarization_pipeline.to(cpu_device)
+            else:
+                diarization_cpu = diarization_pipeline
+            diarization = diarization_cpu(audio_path)
+            logger.info("✅ Diarization completed successfully on CPU after fallback")
+        except Exception as e2:
+            logger.error(f"❌ Diarization failed on CPU fallback as well: {e2}")
+            raise
     diarization_time = time.time() - diarization_start
     
     if progress_callback:
