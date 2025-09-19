@@ -31,6 +31,9 @@ COPY app/ ./app
 # Copy model download script
 COPY download_models.py .
 
+# Copy model preload script
+COPY preload_models.py .
+
 # Copy all cache directories (Docker will use .dockerignore to handle missing files)
 COPY cache/ /app/cache/
 
@@ -48,27 +51,7 @@ ENV DIARIZATION_MODEL=${DIARIZATION_MODEL}
 ENV HF_TOKEN=${HF_TOKEN}
 
 # Pre-download models if not cached, or use cached versions
-RUN python -c "\
-import os; \
-from pathlib import Path; \
-from faster_whisper import WhisperModel; \
-cache_dir = '/app/cache/whisper'; \
-try: \
-    model = WhisperModel('$ASR_MODEL', download_root=cache_dir); \
-    print('✅ Loaded Whisper model: $ASR_MODEL'); \
-except Exception as e: \
-    print(f'⚠️ Failed to load Whisper model: {e}'); \
-"
-
-RUN if [ -n "$HF_TOKEN" ]; then python -c "\
-import os; \
-from pyannote.audio import Pipeline; \
-try: \
-    pipeline = Pipeline.from_pretrained('$DIARIZATION_MODEL', use_auth_token='$HF_TOKEN'); \
-    print('✅ Loaded diarization model: $DIARIZATION_MODEL'); \
-except Exception as e: \
-    print(f'⚠️ Failed to load diarization model: {e}'); \
-"; fi
+RUN python preload_models.py
 
 EXPOSE 8000
 
