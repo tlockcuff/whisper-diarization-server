@@ -8,6 +8,7 @@ import json
 import asyncio
 import logging
 import warnings
+import time
 from pydub import AudioSegment
 from sse_starlette.sse import EventSourceResponse
 
@@ -31,8 +32,22 @@ app = FastAPI()
 
 # Load models at startup using environment variables
 asr_model_name = os.getenv("ASR_MODEL", "base")
-diarization_model_name = os.getenv("DIARIZATION_MODEL", "pyannote/speaker-diarization-3.1")
+diarization_model_name = os.getenv("DIARIZATION_MODEL", "pyannote/speaker-diarization@2.1")
 hf_token = os.getenv("HF_TOKEN")
+
+# Set up cache directories
+cache_dir = os.getenv("CACHE_DIR", "/app/cache")
+whisper_cache = os.path.join(cache_dir, "whisper")
+hf_cache = os.path.join(cache_dir, "huggingface")
+
+# Ensure cache directories exist
+os.makedirs(whisper_cache, exist_ok=True)
+os.makedirs(hf_cache, exist_ok=True)
+
+# Set HuggingFace cache environment variables
+os.environ["HF_HOME"] = hf_cache
+os.environ["TRANSFORMERS_CACHE"] = hf_cache
+os.environ["HUGGINGFACE_HUB_CACHE"] = hf_cache
 
 logger.info(f"🚀 Starting whisper-diarization server")
 logger.info(f"📝 ASR Model: {asr_model_name}")
@@ -40,17 +55,106 @@ logger.info(f"🎤 Diarization Model: {diarization_model_name}")
 logger.info(f"🔐 HF Token: {'✅ Provided' if hf_token else '❌ Not provided'}")
 
 logger.info("🔄 Loading ASR model...")
-asr_model = WhisperModel(asr_model_name, device="cuda", compute_type="float16")
-logger.info("✅ ASR model loaded successfully")
+logger.info(f"📁 Using Whisper cache directory: {whisper_cache}")
+try:
+    # Try CUDA first with cache directory
+    asr_model = WhisperModel(asr_model_name, device="cuda", compute_type="float16", download_root=whisper_cache)
+    logger.info("✅ ASR model loaded successfully (GPU)")
+except Exception as e:
+    logger.warning(f"⚠️ Failed to load ASR model on GPU: {e}")
+    logger.info("🔄 Falling back to CPU...")
+    asr_model = WhisperModel(asr_model_name, device="cpu", compute_type="int8", download_root=whisper_cache)
+    logger.info("✅ ASR model loaded successfully (CPU)")
 
 logger.info("🔄 Loading diarization pipeline...")
-if hf_token:
-    diarization_pipeline = Pipeline.from_pretrained(diarization_model_name, use_auth_token=hf_token)
-else:
-    diarization_pipeline = Pipeline.from_pretrained(diarization_model_name)
-logger.info("✅ Diarization pipeline loaded successfully")
+logger.info(f"📁 Using HuggingFace cache directory: {hf_cache}")
+try:
+    if hf_token:
+        diarization_pipeline = Pipeline.from_pretrained(diarization_model_name, use_auth_token=hf_token)
+    else:
+        diarization_pipeline = Pipeline.from_pretrained(diarization_model_name)
+    
+    # Try to move pipeline to GPU if available
+    import torch
+    if torch.cuda.is_available():
+        try:
+            diarization_pipeline = diarization_pipeline.to(torch.device("cuda"))
+            logger.info("✅ Diarization pipeline loaded successfully (GPU)")
+        except Exception as e:
+            logger.warning(f"⚠️ Failed to move diarization to GPU: {e}")
+            logger.info("✅ Diarization pipeline loaded successfully (CPU)")
+    else:
+        logger.info("✅ Diarization pipeline loaded successfully (CPU)")
+        
+except Exception as e:
+    logger.error(f"❌ Failed to load diarization pipeline: {e}")
+    raise
 
 logger.info("🎉 Server initialization complete! Ready to process audio files.")
+
+def diarize_with_progress(audio_path, progress_callback=None):
+    """
+    Run speaker diarization with progress callbacks and timing
+    """
+    start_time = time.time()
+    
+    if progress_callback:
+        progress_callback("Starting speaker diarization analysis...")
+    
+    logger.info("🎤 Starting speaker diarization...")
+    
+    if progress_callback:
+        progress_callback("Loading audio file and extracting features...")
+    
+    # Run the diarization pipeline (this is the main bottleneck)
+    diarization_start = time.time()
+    diarization = diarization_pipeline(audio_path)
+    diarization_time = time.time() - diarization_start
+    
+    if progress_callback:
+        progress_callback(f"Processing completed in {diarization_time:.1f}s - Analyzing results...")
+    
+    # Count speakers for logging
+    speakers = set()
+    segment_count = 0
+    total_duration = 0
+    
+    for turn, _, speaker in diarization.itertracks(yield_label=True):
+        speakers.add(speaker)
+        segment_count += 1
+        total_duration = max(total_duration, turn.end)
+    
+    total_time = time.time() - start_time
+    
+    logger.info(f"✅ Speaker diarization completed in {total_time:.1f}s")
+    logger.info(f"📊 Results: {len(speakers)} speakers, {segment_count} segments, {total_duration:.1f}s audio")
+    logger.info(f"⚡ Processing speed: {total_duration/diarization_time:.1f}x realtime")
+    
+    if progress_callback:
+        progress_callback(f"Complete! Found {len(speakers)} speakers in {total_time:.1f}s ({total_duration/diarization_time:.1f}x realtime)")
+    
+    return diarization
+
+@app.get("/health")
+async def health_check():
+    """Health check endpoint"""
+    import torch
+    
+    status = {
+        "status": "healthy",
+        "models": {
+            "asr": asr_model_name,
+            "diarization": diarization_model_name
+        },
+        "gpu_available": torch.cuda.is_available(),
+        "gpu_count": torch.cuda.device_count() if torch.cuda.is_available() else 0
+    }
+    
+    if torch.cuda.is_available():
+        status["gpu_name"] = torch.cuda.get_device_name(0)
+        status["gpu_memory"] = f"{torch.cuda.get_device_properties(0).total_memory // 1024**3}GB"
+    
+    return status
 
 @app.post("/v1/audio/transcriptions")
 async def transcribe(file: UploadFile, model: str = Form("whisper-1")):
@@ -92,10 +196,8 @@ async def transcribe(file: UploadFile, model: str = Form("whisper-1")):
             logger.info("📄 File is already in WAV format, using directly")
             audio_path = uploaded_path
 
-        # Diarization
-        logger.info("🎤 Starting speaker diarization...")
-        diarization = diarization_pipeline(audio_path)
-        logger.info("✅ Speaker diarization completed")
+        # Diarization with progress tracking
+        diarization = diarize_with_progress(audio_path, lambda msg: logger.info(f"🔄 {msg}"))
 
         # Run ASR
         logger.info("🗣️ Starting speech recognition...")
@@ -146,7 +248,6 @@ async def transcribe(file: UploadFile, model: str = Form("whisper-1")):
                 except:
                     pass
 
-
 @app.post("/v1/audio/transcriptions/stream")
 async def transcribe_stream(file: UploadFile, model: str = Form("whisper-1")):
     """
@@ -193,10 +294,8 @@ async def transcribe_stream(file: UploadFile, model: str = Form("whisper-1")):
                 logger.info("📄 Streaming file is already in WAV format")
                 audio_path = uploaded_path
 
-            # Run diarization (this happens first and takes time)
-            logger.info("🎤 Starting streaming speaker diarization...")
-            diarization = diarization_pipeline(audio_path)
-            logger.info("✅ Streaming speaker diarization completed")
+            # Run diarization with progress tracking
+            diarization = diarize_with_progress(audio_path, lambda msg: logger.info(f"🌊 Streaming - {msg}"))
 
             # Run ASR with streaming
             logger.info("🗣️ Starting streaming speech recognition...")

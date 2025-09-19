@@ -1,0 +1,54 @@
+# Git and version control
+.git
+.gitignore
+.gitattributes
+
+# Documentation
+README.md
+*.md
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS specific files
+.DS_Store
+Thumbs.db
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+.pytest_cache/
+
+# Virtual environments
+venv/
+env/
+.env
+
+# Logs
+*.log
+
+# Temporary files
+*.tmp
+*.temp
+
+# Docker files (don't copy Docker files into the image)
+Dockerfile*
+docker-compose*.yml
+
+# Test files
+test_*
+*_test.py
+
+# Development tools
+Makefile
+
+# Only copy specific cache directories, not everything
+# This allows us to selectively copy cache/ in the Dockerfile

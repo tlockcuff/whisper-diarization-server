@@ -4,15 +4,22 @@ services:
       context: .
       args:
         - ASR_MODEL=${ASR_MODEL:-base}
-        - DIARIZATION_MODEL=${DIARIZATION_MODEL:-pyannote/speaker-diarization-3.1}
+        - DIARIZATION_MODEL=${DIARIZATION_MODEL:-pyannote/speaker-diarization@2.1}
         - HF_TOKEN=${HF_TOKEN}
     restart: unless-stopped
     ports:
       - "8000:8000"
     environment:
       - ASR_MODEL=${ASR_MODEL:-base}
-      - DIARIZATION_MODEL=${DIARIZATION_MODEL:-pyannote/speaker-diarization-3.1}
+      - DIARIZATION_MODEL=${DIARIZATION_MODEL:-pyannote/speaker-diarization@2.1}
       - HF_TOKEN=${HF_TOKEN}
+    volumes:
+      # Mount local cache directories to persist models between container restarts
+      - ./cache/huggingface:/app/cache/huggingface
+      - ./cache/whisper:/app/cache/whisper
+      - ./cache/models:/app/cache/models
+      # Optional: mount pip cache for faster rebuilds
+      - ./cache/pip:/app/cache/pip
     deploy:
       resources:
         reservations:

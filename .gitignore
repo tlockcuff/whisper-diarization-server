@@ -1,1 +1,47 @@
+# Environment variables
 .env
+
+# Cache directories (keep structure, ignore contents)
+cache/huggingface/*
+cache/whisper/*
+cache/models/*
+cache/pip/*
+
+# Keep the cache directory structure
+!cache/
+!cache/huggingface/
+!cache/whisper/
+!cache/models/
+!cache/pip/
+!cache/.gitkeep
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+.pytest_cache/
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS specific files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Temporary files
+*.tmp
+*.temp
+
+# Virtual environments
+venv/
+env/
