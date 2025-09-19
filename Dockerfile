@@ -1,9 +1,16 @@
 # Use PyTorch official image which includes properly configured CUDA + cuDNN
 FROM pytorch/pytorch:2.1.0-cuda12.1-cudnn8-runtime
 
+# Configure timezone to prevent interactive prompts
+ENV DEBIAN_FRONTEND=noninteractive
+ENV TZ=America/New_York
+
 # System deps
 RUN apt-get update && apt-get install -y \
+    tzdata \
     git ffmpeg \
+    && ln -fs /usr/share/zoneinfo/$TZ /etc/localtime \
+    && dpkg-reconfigure --frontend noninteractive tzdata \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy project files
