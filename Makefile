@@ -41,6 +41,7 @@ docker-run:
 	@echo "📝 API docs: http://localhost:8000/docs"
 	@echo ""
 	@echo "🔄 Building and starting containers..."
+	@echo "⚠️  If this fails, try: make docker-run-cpu"
 	docker compose up -d
 	@echo ""
 	@echo "✅ Server started! Check logs with: make logs"

@@ -1,11 +1,15 @@
-# Multi-stage build for Ubuntu 24.04 compatibility
-FROM nvidia/cuda:12.1-devel-ubuntu22.04 AS base
+# Multi-stage build for Ubuntu 24.04 compatibility  
+FROM nvidia/cuda:11.8.0-devel-ubuntu20.04 AS base
 
 # Avoid prompts from apt
 ENV DEBIAN_FRONTEND=noninteractive
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
+    software-properties-common \
+    && add-apt-repository -y ppa:deadsnakes/ppa \
+    && apt-get update \
+    && apt-get install -y \
     python3.11 \
     python3.11-venv \
     python3.11-dev \
@@ -30,20 +34,24 @@ RUN pip install --no-cache-dir \
     torch==2.4.1 \
     torchvision==0.19.1 \
     torchaudio==2.4.1 \
-    --index-url https://download.pytorch.org/whl/cu121
+    --index-url https://download.pytorch.org/whl/cu118
 
 # Install other dependencies
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Production image
-FROM nvidia/cuda:12.1-runtime-ubuntu22.04
+FROM nvidia/cuda:11.8.0-runtime-ubuntu20.04
 
 # Avoid prompts from apt
 ENV DEBIAN_FRONTEND=noninteractive
 
 # Install runtime dependencies only
 RUN apt-get update && apt-get install -y \
+    software-properties-common \
+    && add-apt-repository -y ppa:deadsnakes/ppa \
+    && apt-get update \
+    && apt-get install -y \
     python3.11 \
     ffmpeg \
     && rm -rf /var/lib/apt/lists/*
