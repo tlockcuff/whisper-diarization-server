@@ -66,7 +66,7 @@ ENV DIARIZATION_MODEL=${DIARIZATION_MODEL}
 ENV HF_TOKEN=${HF_TOKEN}
 
 # Pre-download models if not cached, or use cached versions
-RUN python preload_models.py
+RUN python3 preload_models.py
 
 EXPOSE 8000
 
