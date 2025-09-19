@@ -1,19 +1,27 @@
-# Use NVIDIA PyTorch container with broader GPU architecture support
-FROM nvcr.io/nvidia/pytorch:24.08-py3
+# Build custom PyTorch with RTX 5060 Ti support (compute capability 8.9)
+FROM nvidia/cuda:12.4-cudnn9-devel-ubuntu22.04
 
 # Configure timezone to prevent interactive prompts
 ENV DEBIAN_FRONTEND=noninteractive
 ENV TZ=America/New_York
+
+# Set CUDA architecture for RTX 5060 Ti (compute capability 8.9)
+ENV TORCH_CUDA_ARCH_LIST="8.9"
 
 # CUDA/cuDNN environment variables for better compatibility
 ENV CUDA_MODULE_LOADING=LAZY
 ENV CUDNN_LOGINFO_DBG=0
 ENV CUDNN_LOGERR_DBG=0
 
-# System deps
+# Install Python and system dependencies
 RUN apt-get update && apt-get install -y \
+    python3 \
+    python3-pip \
+    python3-dev \
+    git \
+    ffmpeg \
     tzdata \
-    git ffmpeg \
+    build-essential \
     && ln -fs /usr/share/zoneinfo/$TZ /etc/localtime \
     && dpkg-reconfigure --frontend noninteractive tzdata \
     && rm -rf /var/lib/apt/lists/*
@@ -23,6 +31,9 @@ WORKDIR /app
 
 # Create cache directories
 RUN mkdir -p /app/cache/models /app/cache/huggingface /app/cache/whisper /app/cache/pip
+
+# Install PyTorch with CUDA support compiled for RTX 5060 Ti
+RUN pip install torch==2.4.0 torchvision==0.19.0 torchaudio==2.4.0 --index-url https://download.pytorch.org/whl/cu124
 
 # Copy requirements first for Docker layer caching
 COPY requirements.txt .
