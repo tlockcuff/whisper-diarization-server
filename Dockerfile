@@ -1,5 +1,5 @@
 # Build custom PyTorch with RTX 5060 Ti support (compute capability 8.9)
-FROM nvidia/cuda:12.3-cudnn9-devel-ubuntu22.04
+FROM nvidia/cuda:12.3.2-cudnn9-devel-ubuntu22.04
 
 # Configure timezone to prevent interactive prompts
 ENV DEBIAN_FRONTEND=noninteractive
