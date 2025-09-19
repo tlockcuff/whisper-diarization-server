@@ -4,6 +4,7 @@ from pyannote.audio import Pipeline
 import tempfile
 import shutil
 import os
+from pydub import AudioSegment
 
 app = FastAPI()
 
@@ -21,18 +22,34 @@ else:
 @app.post("/v1/audio/transcriptions")
 async def transcribe(file: UploadFile, model: str = Form("whisper-1")):
     # Get file extension from uploaded file
-    file_extension = None
+    original_extension = None
     if file.filename:
-        file_extension = os.path.splitext(file.filename)[1]
-    if not file_extension:
-        file_extension = ".wav"  # Default fallback
+        original_extension = os.path.splitext(file.filename)[1].lower()
     
-    # Save upload to temp file with proper extension
-    with tempfile.NamedTemporaryFile(delete=False, suffix=file_extension) as tmp:
+    # Save uploaded file to temp location
+    with tempfile.NamedTemporaryFile(delete=False, suffix=original_extension or ".tmp") as tmp:
         shutil.copyfileobj(file.file, tmp)
-        audio_path = tmp.name
+        uploaded_path = tmp.name
 
+    # Create WAV file path
+    wav_path = None
+    
     try:
+        # Convert to WAV format for compatibility
+        if original_extension and original_extension != ".wav":
+            try:
+                # Use pydub to convert to WAV
+                audio = AudioSegment.from_file(uploaded_path)
+                wav_path = uploaded_path.replace(original_extension, ".wav")
+                audio.export(wav_path, format="wav")
+                audio_path = wav_path
+            except Exception as e:
+                # If conversion fails, try original file
+                print(f"Audio conversion failed: {e}, using original file")
+                audio_path = uploaded_path
+        else:
+            audio_path = uploaded_path
+
         # Diarization
         diarization = diarization_pipeline(audio_path)
 
@@ -63,8 +80,10 @@ async def transcribe(file: UploadFile, model: str = Form("whisper-1")):
         }
     
     finally:
-        # Clean up temp file
-        try:
-            os.unlink(audio_path)
-        except:
-            pass
+        # Clean up temp files
+        for path in [uploaded_path, wav_path]:
+            if path:
+                try:
+                    os.unlink(path)
+                except:
+                    pass
