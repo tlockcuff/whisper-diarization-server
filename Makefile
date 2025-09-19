@@ -6,6 +6,8 @@
 # Default target
 help:
 	@echo "Available targets:"
+	@echo "  start-docker   - Quick start (Docker only, no local Python needed)"
+	@echo "  start          - Full start with local caching (requires Python)"
 	@echo "  cache          - Download and cache all models locally"
 	@echo "  build          - Build Docker image with cached models"
 	@echo "  run            - Run the application with Docker Compose"
@@ -15,21 +17,33 @@ help:
 	@echo "  health         - Check application health"
 	@echo "  logs           - Show application logs"
 
-# Install Python dependencies locally
+# Install Python dependencies locally (with virtual environment)
 install-deps:
-	@echo "📦 Installing Python dependencies..."
-	pip install -r requirements.txt
+	@echo "📦 Setting up virtual environment and installing dependencies..."
+	@if [ ! -d "venv" ]; then python3 -m venv venv; fi
+	@. venv/bin/activate && pip install -r requirements.txt
+	@echo "✅ Dependencies installed in virtual environment"
 
-# Download models to local cache
-download-models: install-deps
+# Download models to local cache (using virtual environment)
+download-models:
 	@echo "📥 Downloading models to local cache..."
 	@mkdir -p cache/models cache/huggingface cache/whisper cache/pip
-	python download_models.py
+	@if [ -d "venv" ]; then \
+		echo "Using virtual environment..."; \
+		. venv/bin/activate && python download_models.py; \
+	else \
+		echo "No virtual environment found, trying system Python..."; \
+		python3 download_models.py 2>/dev/null || echo "⚠️ Local model download failed - will download in Docker instead"; \
+	fi
 
 # Cache everything (models + pip packages)
 cache: download-models
 	@echo "📦 Caching pip packages..."
-	pip download --dest cache/pip -r requirements.txt
+	@if [ -d "venv" ]; then \
+		. venv/bin/activate && pip download --dest cache/pip -r requirements.txt; \
+	else \
+		python3 -m pip download --dest cache/pip -r requirements.txt 2>/dev/null || echo "⚠️ Pip cache failed - will use Docker cache instead"; \
+	fi
 	@echo "✅ All caching completed!"
 
 # Build Docker image
@@ -96,6 +110,13 @@ start: cache build run
 	@echo "🎉 Quick start completed!"
 	@echo "📍 Application should be available at http://localhost:8000"
 	@echo "🏥 Health check: http://localhost:8000/health"
+
+# Docker-only quick start (no local Python required)
+start-docker: build run
+	@echo "🎉 Docker-only start completed!"
+	@echo "📍 Application should be available at http://localhost:8000"
+	@echo "🏥 Health check: http://localhost:8000/health"
+	@echo "💡 Models will be downloaded during first run in container"
 
 # Development mode (run locally without Docker)
 dev: install-deps
