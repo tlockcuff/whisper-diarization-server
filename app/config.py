@@ -1,98 +1,100 @@
-"""
-Configuration management for whisper-diarization-server
-"""
+"""Configuration management for Whisper Diarization Server."""
 
 import os
-from typing import Dict, Any, Optional
-import logging
+from typing import List, Optional
+from pathlib import Path
 
-logger = logging.getLogger(__name__)
-
-
-class Config:
-    """Configuration management with environment variable support"""
-
-    def __init__(self):
-        # Model configurations
-        self.asr_model = os.getenv("ASR_MODEL", "base")
-        self.diarization_model = os.getenv("DIARIZATION_MODEL", "pyannote/speaker-diarization@2.1")
-        self.hf_token = os.getenv("HF_TOKEN")
-
-        # Cache configuration
-        self.cache_dir = os.getenv("CACHE_DIR", "/app/cache")
-        self.whisper_cache = os.path.join(self.cache_dir, "whisper")
-        self.hf_cache = os.path.join(self.cache_dir, "huggingface")
-
-        # Hardware configuration
-        self.force_cpu = os.getenv("FORCE_CPU", "false").lower() == "true"
-        self.max_gpu_memory_fraction = float(os.getenv("MAX_GPU_MEMORY_FRACTION", "0.8"))
-        self.cuda_device = os.getenv("CUDA_DEVICE", "0")
-
-        # Performance configuration
-        self.batch_size = int(os.getenv("BATCH_SIZE", "1"))
-        self.max_audio_length = int(os.getenv("MAX_AUDIO_LENGTH", "300"))  # seconds
-        self.enable_streaming = os.getenv("ENABLE_STREAMING", "true").lower() == "true"
-
-        # Server configuration
-        self.host = os.getenv("HOST", "0.0.0.0")
-        self.port = int(os.getenv("PORT", "8000"))
-        self.workers = int(os.getenv("WORKERS", "1"))
-
-        # Logging configuration
-        self.log_level = os.getenv("LOG_LEVEL", "INFO")
-        self.log_file = os.getenv("LOG_FILE")
-
-    def validate(self) -> Dict[str, Any]:
-        """Validate configuration and return any issues"""
-        issues = []
-
-        # Check required directories
-        for dir_path, name in [(self.whisper_cache, "Whisper cache"),
-                              (self.hf_cache, "HuggingFace cache")]:
-            if not os.path.exists(dir_path):
-                try:
-                    os.makedirs(dir_path, exist_ok=True)
-                    logger.info(f"Created {name} directory: {dir_path}")
-                except Exception as e:
-                    issues.append(f"Failed to create {name} directory {dir_path}: {e}")
-
-        # Validate model names
-        valid_asr_models = ["tiny", "base", "small", "medium", "large"]
-        if self.asr_model not in valid_asr_models:
-            issues.append(f"Invalid ASR model '{self.asr_model}'. Valid options: {valid_asr_models}")
-
-        # Validate GPU memory fraction
-        if not 0.1 <= self.max_gpu_memory_fraction <= 1.0:
-            issues.append("MAX_GPU_MEMORY_FRACTION must be between 0.1 and 1.0")
-
-        return {"valid": len(issues) == 0, "issues": issues}
-
-    def print_config(self):
-        """Print current configuration (without sensitive data)"""
-        logger.info("🔧 Configuration:")
-        logger.info(f"  ASR Model: {self.asr_model}")
-        logger.info(f"  Diarization Model: {self.diarization_model}")
-        logger.info(f"  HF Token: {'✅ Provided' if self.hf_token else '❌ Not provided'}")
-        logger.info(f"  Cache Directory: {self.cache_dir}")
-        logger.info(f"  Force CPU: {self.force_cpu}")
-        logger.info(f"  Max GPU Memory Fraction: {self.max_gpu_memory_fraction}")
-        logger.info(f"  Enable Streaming: {self.enable_streaming}")
-        logger.info(f"  Server: {self.host}:{self.port}")
-
-    def to_dict(self) -> Dict[str, Any]:
-        """Convert config to dictionary"""
-        return {
-            "asr_model": self.asr_model,
-            "diarization_model": self.diarization_model,
-            "hf_token_provided": self.hf_token is not None,
-            "cache_dir": self.cache_dir,
-            "force_cpu": self.force_cpu,
-            "max_gpu_memory_fraction": self.max_gpu_memory_fraction,
-            "enable_streaming": self.enable_streaming,
-            "host": self.host,
-            "port": self.port,
-        }
+from pydantic import BaseModel, Field
+from pydantic_settings import BaseSettings
 
 
-# Global configuration instance
-config = Config()
+class AudioConfig(BaseModel):
+    """Audio processing configuration."""
+
+    max_length_seconds: int = Field(default=300, description="Maximum audio length in seconds")
+    supported_formats: List[str] = Field(
+        default=["mp3", "wav", "flac", "m4a", "ogg", "webm"],
+        description="Supported audio formats"
+    )
+    sample_rate: int = Field(default=16000, description="Target sample rate for audio processing")
+    batch_size: int = Field(default=8, description="Batch size for processing")
+
+
+class ModelConfig(BaseModel):
+    """Model configuration."""
+
+    whisper_model: str = Field(default="large-v2", description="Whisper model name")
+    pyannote_model: str = Field(
+        default="pyannote/speaker-diarization-3.1",
+        description="Pyannote diarization model"
+    )
+    cache_dir: Path = Field(default=Path("./cache"), description="Model cache directory")
+    cache_ttl: int = Field(default=3600, description="Cache TTL in seconds")
+
+
+class HardwareConfig(BaseModel):
+    """Hardware configuration."""
+
+    use_gpu: bool = Field(default=True, description="Use GPU acceleration if available")
+    gpu_device: int = Field(default=0, description="GPU device index")
+    max_workers: int = Field(default=2, description="Maximum number of worker processes")
+
+
+class ServerConfig(BaseModel):
+    """Server configuration."""
+
+    host: str = Field(default="0.0.0.0", description="Server host")
+    port: int = Field(default=8000, description="Server port")
+    debug: bool = Field(default=False, description="Debug mode")
+    max_concurrent_requests: int = Field(default=10, description="Maximum concurrent requests")
+
+
+class LoggingConfig(BaseModel):
+    """Logging configuration."""
+
+    level: str = Field(default="INFO", description="Logging level")
+    format: str = Field(default="json", description="Log format (json or text)")
+
+
+class SecurityConfig(BaseModel):
+    """Security configuration."""
+
+    cors_origins: List[str] = Field(
+        default=["http://localhost:3000", "http://localhost:8080"],
+        description="CORS allowed origins"
+    )
+    api_key_required: bool = Field(default=False, description="Require API key authentication")
+
+
+class Settings(BaseSettings):
+    """Application settings loaded from environment variables."""
+
+    class Config:
+        env_file = ".env"
+        case_sensitive = False
+
+    # Core configurations
+    server: ServerConfig = ServerConfig()
+    model: ModelConfig = ModelConfig()
+    hardware: HardwareConfig = HardwareConfig()
+    audio: AudioConfig = AudioConfig()
+    logging: LoggingConfig = LoggingConfig()
+    security: SecurityConfig = SecurityConfig()
+
+    # External services
+    huggingface_token: Optional[str] = Field(default=None, description="Hugging Face API token")
+    openai_api_key: Optional[str] = Field(default=None, description="OpenAI API key")
+    redis_url: Optional[str] = Field(default=None, description="Redis URL for caching")
+    enable_redis: bool = Field(default=False, description="Enable Redis caching")
+
+    # Feature flags
+    enable_streaming: bool = Field(default=True, description="Enable streaming responses")
+
+
+def get_settings() -> Settings:
+    """Get application settings."""
+    return Settings()
+
+
+# Global settings instance
+settings = get_settings()

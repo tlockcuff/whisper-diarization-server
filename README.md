@@ -1,147 +1,153 @@
 # Whisper Diarization Server v2.0
 
-A robust, hardware-aware FastAPI server that provides speaker diarization and speech recognition using OpenAI Whisper and pyannote.audio.
+A robust, FastAPI server that provides speaker diarization and speech recognition using OpenAI Whisper and pyannote.audio.
 
-## ✨ New in v2.0
-- **Hardware Detection**: Automatic GPU compatibility checking
-- **Modular Architecture**: Clean separation of concerns
-- **Robust Error Handling**: Graceful fallbacks and recovery
-- **Configuration Management**: Flexible environment-based configuration
-- **Enhanced Monitoring**: Detailed health checks and diagnostics
+Supports OpenAI API REST Response Streaming (/v1/audio/transcriptions)
 
 ## Features
 
-- 🎤 **Speaker Diarization**: Identify different speakers in audio files
-- 🗣️ **Speech Recognition**: Transcribe audio with speaker labels
-- 🌊 **Streaming Support**: Real-time transcription streaming
-- ⚡ **Progress Callbacks**: Real-time progress updates during processing
-- 🔧 **CPU/GPU Support**: Automatic fallback to CPU if GPU unavailable
-- 📦 **Local Caching**: Cache models locally for faster builds and offline usage
-- 🐳 **Docker Support**: Containerized deployment with CUDA support
+- 🚀 **OpenAI API Compatible** - Drop-in replacement for OpenAI's transcription API
+- 🎯 **Speaker Diarization** - Automatic speaker identification and segmentation
+- 📡 **Streaming Support** - Real-time streaming responses for better UX
+- 🏃‍♂️ **GPU Acceleration** - Optimized for NVIDIA GPUs with automatic fallback to CPU
+- 🐳 **Docker Support** - Easy deployment with Docker and Docker Compose
+- 🔧 **Model Caching** - Fast startup times with intelligent model caching
+- 📊 **Hardware Detection** - Automatic hardware optimization and configuration
 
-## Architecture
+## Hardware Requirements
 
-### Core Modules
+### Minimum
+- CPU: 4-core processor
+- RAM: 8GB
+- Storage: 10GB for models and cache
 
-1. **Hardware Detection** (`app/hardware_detector.py`)
-   - Automatic GPU compatibility checking
-   - Compute capability detection
-   - Memory and performance analysis
-   - Compatibility recommendations
+### Recommended
+- GPU: NVIDIA GPU with 4GB+ VRAM (RTX 3060 or better)
+- RAM: 16GB
+- Storage: 20GB SSD
 
-2. **Model Loading** (`app/model_loader.py`)
-   - Robust model loading with fallbacks
-   - Hardware-aware device selection
-   - Automatic retry mechanisms
-   - Memory management
-
-3. **Configuration** (`app/config.py`)
-   - Environment-based configuration
-   - Validation and error checking
-   - Flexible parameter management
-
-4. **Main Application** (`app/main.py`)
-   - FastAPI server with enhanced endpoints
-   - Comprehensive error handling
-   - Health monitoring and diagnostics
+### Expected Hardware (as mentioned)
+- 2x Nvidia RTX 5060 Ti (for high-performance deployment)
 
 ## Quick Start
 
-### Using Make (Recommended)
+### 1. Clone and Setup
 
 ```bash
-# Download and cache models, build, and run
-make start
-
-# Or step by step:
-make cache          # Download models to local cache
-make build          # Build Docker image
-make run            # Start the service
+git clone <repository-url>
+cd whisper-diarization-server
 ```
 
-### Manual Setup
-
-1. **Install dependencies:**
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-2. **Set up environment variables:**
-   ```bash
-   export HF_TOKEN="your_huggingface_token"  # Required for some models
-   export ASR_MODEL="base"                   # whisper model size
-   export DIARIZATION_MODEL="pyannote/speaker-diarization@2.1"
-   ```
-
-3. **Download models (optional but recommended):**
-   ```bash
-   python download_models.py
-   ```
-
-4. **Run with Docker:**
-   ```bash
-   docker-compose up
-   ```
-
-## Caching System
-
-The application implements comprehensive caching to speed up builds and reduce network dependencies:
-
-### Cache Structure
-```
-cache/
-├── huggingface/     # HuggingFace models and tokenizers
-├── whisper/         # OpenAI Whisper models
-├── models/          # Other model artifacts
-└── pip/             # Python packages
-```
-
-### Benefits
-- **Faster Docker builds**: Models cached locally, no re-download
-- **Offline capability**: Run without internet after initial cache
-- **Bandwidth savings**: Download models once, reuse across builds
-- **Build reproducibility**: Same models across environments
-
-### Cache Management
+### 2. Install Dependencies
 
 ```bash
-# Cache all models and dependencies
-make cache
+# Using the Makefile (recommended)
+make install
 
-# Check cache size
-make cache-size
-
-# Clean cache
-make clean-cache
-
-# Force rebuild without cache
-make build-no-cache
+# Or manually
+pip install -r requirements.txt
 ```
 
-## API Endpoints
+### 3. Download Models
+
+```bash
+# Download Whisper and Pyannote models
+make download-models
+
+# Or manually
+python download_models.py
+```
+
+### 4. Configure Environment
+
+```bash
+# Copy environment template
+cp env.example .env
+
+# Edit configuration as needed
+nano .env
+```
+
+### 5. Run the Server
+
+```bash
+# Development mode
+make dev
+
+# Production mode
+make run
+
+# Or manually
+python app/main.py
+```
+
+The server will start on `http://localhost:8000`
+
+## API Usage
+
+### OpenAI-Compatible Endpoints
+
+#### Transcribe Audio
+
+```bash
+curl -X POST "http://localhost:8000/v1/audio/transcriptions" \
+     -H "Authorization: Bearer your-api-key" \
+     -H "Content-Type: multipart/form-data" \
+     -F "file=@audio.mp3" \
+     -F "model=whisper-1" \
+     -F "response_format=json"
+```
+
+**Response:**
+```json
+{
+  "text": "This is the transcribed text with speaker identification.",
+  "segments": [
+    {
+      "start": 0.0,
+      "end": 5.0,
+      "text": "Hello, this is speaker one.",
+      "speaker": "Speaker 1"
+    },
+    {
+      "start": 5.0,
+      "end": 10.0,
+      "text": "Hi there, this is speaker two.",
+      "speaker": "Speaker 2"
+    }
+  ]
+}
+```
+
+#### Streaming Transcription
+
+```bash
+curl -X POST "http://localhost:8000/v1/audio/transcriptions" \
+     -H "Authorization: Bearer your-api-key" \
+     -H "Content-Type: multipart/form-data" \
+     -F "file=@audio.mp3" \
+     -F "model=whisper-1" \
+     -F "stream=true"
+```
+
+**Streaming Response:**
+```
+{"status": "processing", "progress": 0}
+{"status": "processing", "progress": 50}
+{"status": "completed", "progress": 100}
+data: {"result": {"text": "...", "segments": [...]}}
+```
 
 ### Health Check
-```bash
-GET /health
-```
-Returns server status and GPU information.
 
-### Transcription (Non-streaming)
 ```bash
-POST /v1/audio/transcriptions
-Content-Type: multipart/form-data
-
-file: <audio_file>
-model: whisper-1
+curl http://localhost:8000/health
 ```
 
-### Transcription (Streaming)
-```bash
-POST /v1/audio/transcriptions/stream
-Content-Type: multipart/form-data
+### Models Information
 
-file: <audio_file>
-model: whisper-1
+```bash
+curl http://localhost:8000/models
 ```
 
 ## Configuration
@@ -150,94 +156,144 @@ model: whisper-1
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `ASR_MODEL` | `base` | Whisper model size (tiny, base, small, medium, large) |
-| `DIARIZATION_MODEL` | `pyannote/speaker-diarization@2.1` | Diarization model |
-| `HF_TOKEN` | - | HuggingFace authentication token |
-| `CACHE_DIR` | `/app/cache` | Directory for model caching |
+| `SERVER_HOST` | `0.0.0.0` | Server host |
+| `SERVER_PORT` | `8000` | Server port |
+| `WHISPER_MODEL` | `large-v2` | Whisper model to use |
+| `PYANNOTE_MODEL` | `pyannote/speaker-diarization-3.1` | Diarization model |
+| `USE_GPU` | `true` | Enable GPU acceleration |
+| `HUGGINGFACE_TOKEN` | - | Required for Pyannote models |
+| `CACHE_DIR` | `./cache` | Model cache directory |
 
-### Model Selection
+### Models
 
-**Whisper Models** (speed vs accuracy trade-off):
-- `tiny`: Fastest, lowest accuracy
-- `base`: Good balance (recommended)
-- `small`: Better accuracy, slower
-- `medium`: High accuracy, much slower
-- `large`: Best accuracy, slowest
+#### Whisper Models
+- `tiny`, `base`, `small`, `medium`, `large`, `large-v2`, `large-v3`
 
-**Diarization Models**:
-- `pyannote/speaker-diarization@2.1`: Faster, good accuracy (recommended)
-- `pyannote/speaker-diarization-3.1`: Better accuracy, slower
+#### Pyannote Models
+- `pyannote/speaker-diarization-3.1` (requires Hugging Face token)
+- `pyannote/speaker-diarization` (legacy)
 
-## Performance Optimization
+## Docker Deployment
 
-1. **Use smaller models** for faster processing:
-   ```bash
-   export ASR_MODEL="base"
-   export DIARIZATION_MODEL="pyannote/speaker-diarization@2.1"
-   ```
+### Build and Run
 
-2. **Pre-cache models** to avoid download delays:
-   ```bash
-   make cache
-   ```
-
-3. **Use GPU** when available (automatic detection with CPU fallback)
-
-4. **Monitor processing** with real-time progress callbacks
-
-## Docker GPU Support
-
-For NVIDIA GPU support:
-
-1. **Install NVIDIA Container Toolkit**
-2. **Configure Docker to use GPU**
-3. **Use the provided docker-compose.yml** (includes GPU configuration)
-
-The application automatically detects and uses GPU when available, with graceful CPU fallback.
-
-## Development
-
-### Local Development
 ```bash
-# Install dependencies
-make install-deps
+# Build image
+make docker-build
 
-# Run development server
-make dev
+# Run with Docker Compose
+make docker-run
 
-# Test setup
-make test-local
+# Run with Redis caching
+make docker-run-with-redis
 ```
 
-### Docker Development
-```bash
-# Build and run
-docker-compose up --build
+### Docker Commands
 
+```bash
 # View logs
 make logs
 
-# Health check
-make health
+# Stop containers
+make docker-stop
+
+# Open shell
+make shell
 ```
+
+## Development
+
+### Setup Development Environment
+
+```bash
+# Install development dependencies
+pip install -r requirements.txt
+
+# Install development tools
+pip install pytest pytest-asyncio black flake8
+
+# Run tests
+make test
+
+# Format code
+black app/
+flake8 app/
+```
+
+### Makefile Commands
+
+```bash
+make help          # Show all available commands
+make setup         # Full setup (install + download models)
+make clean         # Clean cache and temporary files
+make info          # Show system information
+make check-deps    # Check dependencies
+```
+
+## Performance Optimization
+
+### GPU Setup
+- Install NVIDIA drivers and CUDA toolkit
+- Set `USE_GPU=true` in environment
+- Use `nvidia-smi` to monitor GPU usage
+
+### Model Caching
+- Models are cached locally for faster startup
+- Use SSD storage for better performance
+- Set `CACHE_DIR` to a fast storage location
+
+### Memory Management
+- Monitor memory usage with `htop` or `nvtop`
+- Adjust `MAX_WORKERS` based on available RAM
+- Use `make clean` to free up space
 
 ## Troubleshooting
 
-### CUDA/cuDNN Issues
-- The Docker image uses PyTorch base image with pre-configured CUDA
-- CPU fallback is automatic if GPU unavailable
-- Check health endpoint for GPU status
+### Common Issues
 
-### Model Download Issues
-- Ensure `HF_TOKEN` is set for restricted models
-- Check internet connectivity
-- Use `make cache` to pre-download models
+1. **CUDA Out of Memory**
+   - Reduce `MAX_WORKERS` in configuration
+   - Use smaller Whisper model (e.g., `medium` instead of `large-v2`)
+   - Restart the server to clear GPU cache
 
-### Performance Issues
-- Use smaller models for faster processing
-- Ensure GPU is available and properly configured
-- Monitor with health endpoint and logs
+2. **Model Download Issues**
+   - Check internet connection
+   - Verify Hugging Face token for Pyannote models
+   - Check available disk space in cache directory
+
+3. **GPU Not Detected**
+   - Verify NVIDIA drivers are installed
+   - Check `nvidia-smi` command works
+   - Set `USE_GPU=false` to force CPU mode
+
+### Getting Help
+
+```bash
+# Check system info
+make info
+
+# Test hardware detection
+python -c "from app.hardware_detector import detect_hardware; print(detect_hardware())"
+
+# Test model loading
+python -c "from app.model_loader import get_models; get_models()"
+```
 
 ## License
 
-This project is open source. Please check individual model licenses for commercial usage restrictions.
+MIT License - see LICENSE file for details.
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Add tests
+5. Submit a pull request
+
+## Support
+
+For issues and questions:
+- Create an issue on GitHub
+- Check the troubleshooting section above
+- Review the API documentation at `/docs` when server is running

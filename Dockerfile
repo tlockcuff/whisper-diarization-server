@@ -1,79 +1,39 @@
-# Build custom PyTorch with RTX 5060 Ti support (compute capability 8.9)
-ARG CUDA_IMAGE_TAG=12.4.1-cudnn-devel-ubuntu22.04
-FROM nvidia/cuda:${CUDA_IMAGE_TAG}
+# Use Python 3.10 slim base image
+FROM python:3.10-slim
 
-# Configure timezone to prevent interactive prompts
-ENV DEBIAN_FRONTEND=noninteractive
-ENV TZ=America/New_York
-
-# CUDA/cuDNN environment variables for better compatibility
-ENV CUDA_MODULE_LOADING=LAZY
-ENV CUDNN_LOGINFO_DBG=0
-ENV CUDNN_LOGERR_DBG=0
-# Force CUDA architecture compatibility for RTX 5060 Ti (compute capability 8.9)
-ENV TORCH_CUDA_ARCH_LIST="8.0;8.6;8.9;9.0"
-ENV CUDA_LAUNCH_BLOCKING=1
-
-# Install Python and system dependencies
-RUN apt-get update && apt-get install -y \
-    python3 \
-    python3-pip \
-    python3-dev \
-    git \
-    ffmpeg \
-    tzdata \
-    build-essential \
-    && ln -fs /usr/share/zoneinfo/$TZ /etc/localtime \
-    && dpkg-reconfigure --frontend noninteractive tzdata \
-    && rm -rf /var/lib/apt/lists/*
-
-# Copy project files
+# Set working directory
 WORKDIR /app
 
-# Create cache directories
-RUN mkdir -p /app/cache/models /app/cache/huggingface /app/cache/whisper /app/cache/pip
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    ffmpeg \
+    wget \
+    git \
+    && rm -rf /var/lib/apt/lists/*
 
-# Install PyTorch with CUDA support (configurable CUDA wheel channel)
-ARG TORCH_CUDA_TAG=cu124
-RUN pip install torch==2.5.1 torchvision==0.20.1 torchaudio==2.5.1 --index-url https://download.pytorch.org/whl/${TORCH_CUDA_TAG}
-
-# Install additional dependencies
-RUN pip install python-dotenv>=1.0.0
-
-# Copy requirements first for Docker layer caching
+# Install Python dependencies
 COPY requirements.txt .
-
-# Install Python packages (will use cache if available during build)
-RUN pip install -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application code
-COPY app/ ./app
+COPY app/ ./app/
+COPY cache/ ./cache/
 
-# Copy model download script
-COPY download_models.py .
+# Create non-root user for security
+RUN useradd --create-home --shell /bin/bash app \
+    && chown -R app:app /app
+USER app
 
-# Copy model preload script
-COPY preload_models.py .
+# Set environment variables
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONPATH=/app
 
-# Copy all cache directories (Docker will use .dockerignore to handle missing files)
-COPY cache/ /app/cache/
-
-# Set up environment variables with defaults
-ARG ASR_MODEL=base
-ARG DIARIZATION_MODEL=pyannote/speaker-diarization@2.1
-ARG HF_TOKEN
-
-# Set environment variables for runtime (point to cache directories)
-ENV TRANSFORMERS_CACHE=/app/cache/huggingface
-ENV HF_HOME=/app/cache/huggingface
-ENV HUGGINGFACE_HUB_CACHE=/app/cache/huggingface
-ENV ASR_MODEL=${ASR_MODEL}
-ENV DIARIZATION_MODEL=${DIARIZATION_MODEL}
-ENV HF_TOKEN=${HF_TOKEN}
-
-# Pre-download models if not cached, or use cached versions
-RUN python3 preload_models.py
-
+# Expose port
 EXPOSE 8000
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD python -c "import requests; requests.get('http://localhost:8000/health')" || exit 1
+
+# Start the application
+CMD ["python", "app/main.py"]

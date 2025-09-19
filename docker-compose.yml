@@ -1,32 +1,30 @@
+version: '3.8'
+
 services:
-  stt-server:
-    build: 
+  whisper-diarization-server:
+    build:
       context: .
-      args:
-        - ASR_MODEL=${ASR_MODEL:-base}
-        - DIARIZATION_MODEL=${DIARIZATION_MODEL:-pyannote/speaker-diarization-3.1}
-        - HF_TOKEN=${HF_TOKEN}
-        - CUDA_IMAGE_TAG=${CUDA_IMAGE_TAG:-12.4.1-cudnn-devel-ubuntu22.04}
-        - TORCH_CUDA_TAG=${TORCH_CUDA_TAG:-cu124}
-    restart: unless-stopped
+      dockerfile: Dockerfile
     ports:
       - "8000:8000"
-    environment:
-      - ASR_MODEL=${ASR_MODEL:-base}
-      - DIARIZATION_MODEL=${DIARIZATION_MODEL:-pyannote/speaker-diarization-3.1}
-      - HF_TOKEN=${HF_TOKEN}
-      - NVIDIA_VISIBLE_DEVICES=all
-      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
-      - TORCH_CUDA_ARCH_LIST=8.0;8.6;8.9;9.0
-      - CUDA_LAUNCH_BLOCKING=1
     volumes:
-      # Mount local cache directories to persist models between container restarts
-      - ./cache/huggingface:/app/cache/huggingface
-      - ./cache/whisper:/app/cache/whisper
-      - ./cache/models:/app/cache/models
-      # Optional: mount pip cache for faster rebuilds
-      - ./cache/pip:/app/cache/pip
-    # Non-swarm mode GPUs (Docker 20.10+)
+      - ./cache:/app/cache
+    environment:
+      - SERVER_HOST=0.0.0.0
+      - SERVER_PORT=8000
+      - USE_GPU=true
+      - WHISPER_MODEL=${WHISPER_MODEL:-large-v2}
+      - PYANNOTE_MODEL=${PYANNOTE_MODEL:-pyannote/speaker-diarization-3.1}
+      - CACHE_DIR=/app/cache
+      - LOG_LEVEL=INFO
+      - ENABLE_STREAMING=true
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
     deploy:
       resources:
         reservations:
@@ -34,6 +32,16 @@ services:
             - driver: nvidia
               count: all
               capabilities: [gpu]
-    # Compose v3+: simpler GPUs request for non-swarm
-    # Uncomment if your Docker supports it and you are not using swarm
-    # gpus: all
+
+  # Optional Redis for caching
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    profiles: ["with-redis"]
+
+volumes:
+  redis_data:

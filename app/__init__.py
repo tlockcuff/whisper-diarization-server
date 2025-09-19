@@ -1,10 +1,6 @@
-"""
-Whisper Diarization Server - Main Application Package
-"""
+"""Whisper Diarization Server - OpenAI-compatible API for speech recognition with speaker diarization."""
 
-from .config import config
-from .hardware_detector import hardware_detector
-from .model_loader import create_model_loader
+from .main import app
 
 __version__ = "2.0.0"
-__all__ = ["config", "hardware_detector", "create_model_loader"]
+__all__ = ["app"]

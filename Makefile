@@ -1,125 +1,104 @@
-# Whisper Diarization Server Makefile
-# Handles caching, building, and running the application
-
-.PHONY: help cache build run clean install-deps download-models
+.PHONY: help install setup download-models run dev test clean docker-build docker-run docker-stop logs shell
 
 # Default target
 help:
-	@echo "Available targets:"
-	@echo "  start-docker   - Quick start (Docker only, no local Python needed)"
-	@echo "  start          - Full start with local caching (requires Python)"
-	@echo "  cache          - Download and cache all models locally"
-	@echo "  build          - Build Docker image with cached models"
-	@echo "  run            - Run the application with Docker Compose"
-	@echo "  clean          - Clean Docker images and cache"
-	@echo "  install-deps   - Install Python dependencies locally"
-	@echo "  download-models - Download models to local cache"
-	@echo "  health         - Check application health"
-	@echo "  logs           - Show application logs"
+	@echo "Whisper Diarization Server - Available commands:"
+	@echo ""
+	@echo "Setup & Installation:"
+	@echo "  install         Install Python dependencies"
+	@echo "  setup           Full setup (install + download models)"
+	@echo "  download-models Download and cache ML models"
+	@echo ""
+	@echo "Development:"
+	@echo "  run             Run the server in production mode"
+	@echo "  dev             Run the server in development mode"
+	@echo "  test            Run tests"
+	@echo "  clean           Clean cache and temporary files"
+	@echo ""
+	@echo "Docker:"
+	@echo "  docker-build    Build Docker image"
+	@echo "  docker-run      Run with Docker Compose"
+	@echo "  docker-stop     Stop Docker containers"
+	@echo "  logs            View application logs"
+	@echo "  shell           Open shell in running container"
+	@echo ""
+	@echo "For more information, see README.md"
 
-# Install Python dependencies locally (with virtual environment)
-install-deps:
-	@echo "📦 Setting up virtual environment and installing dependencies..."
-	@if [ ! -d "venv" ]; then python3 -m venv venv; fi
-	@. venv/bin/activate && pip install -r requirements.txt
-	@echo "✅ Dependencies installed in virtual environment"
+# Setup and installation
+install:
+	@echo "Installing Python dependencies..."
+	pip install -r requirements.txt
 
-# Download models to local cache (using virtual environment)
+setup: install download-models
+
 download-models:
-	@echo "📥 Downloading models to local cache..."
-	@mkdir -p cache/models cache/huggingface cache/whisper cache/pip
-	@if [ -d "venv" ]; then \
-		echo "Using virtual environment..."; \
-		. venv/bin/activate && python download_models.py; \
-	else \
-		echo "No virtual environment found, trying system Python..."; \
-		python3 download_models.py 2>/dev/null || echo "⚠️ Local model download failed - will download in Docker instead"; \
-	fi
+	@echo "Downloading models..."
+	python download_models.py --whisper-model large-v2 --pyannote-model pyannote/speaker-diarization-3.1
 
-# Cache everything (models + pip packages)
-cache: download-models
-	@echo "📦 Caching pip packages..."
-	@if [ -d "venv" ]; then \
-		. venv/bin/activate && pip download --dest cache/pip -r requirements.txt; \
-	else \
-		python3 -m pip download --dest cache/pip -r requirements.txt 2>/dev/null || echo "⚠️ Pip cache failed - will use Docker cache instead"; \
-	fi
-	@echo "✅ All caching completed!"
-
-# Build Docker image
-build:
-	@echo "🐳 Building Docker image..."
-	docker compose build
-
-# Build Docker image without cache (force rebuild)
-build-no-cache:
-	@echo "🐳 Building Docker image (no cache)..."
-	docker compose build --no-cache
-
-# Run the application
+# Development commands
 run:
-	@echo "🚀 Starting application..."
-	docker compose up -d
+	@echo "Starting server in production mode..."
+	python app/main.py
 
-# Run the application in foreground
-run-fg:
-	@echo "🚀 Starting application (foreground)..."
-	docker compose up
+dev:
+	@echo "Starting server in development mode..."
+	python app/main.py --debug
 
-# Stop the application
-stop:
-	@echo "🛑 Stopping application..."
-	docker compose down
+test:
+	@echo "Running tests..."
+	pytest
 
-# Show logs
-logs:
-	@echo "📋 Showing application logs..."
-	docker compose logs -f stt-server
-
-# Check application health
-health:
-	@echo "🏥 Checking application health..."
-	@curl -s http://localhost:8000/health | jq . || echo "❌ Health check failed"
-
-# Clean up Docker resources
+# Cleanup
 clean:
-	@echo "🧹 Cleaning up Docker resources..."
-	docker compose down -v
-	docker system prune -f
+	@echo "Cleaning cache and temporary files..."
+	rm -rf cache/models/*
+	rm -rf cache/whisper/*
+	rm -rf cache/huggingface/*
+	rm -rf cache/pip/*
+	find . -type d -name __pycache__ -exec rm -rf {} +
+	find . -name "*.pyc" -delete
 
-# Clean cache directories
-clean-cache:
-	@echo "🧹 Cleaning local cache..."
-	rm -rf cache/
+# Docker commands
+docker-build:
+	@echo "Building Docker image..."
+	docker-compose build
 
-# Full clean (Docker + cache)
-clean-all: clean clean-cache
+docker-run:
+	@echo "Starting services with Docker Compose..."
+	docker-compose up -d
 
-# Show cache size
-cache-size:
-	@echo "📊 Cache directory sizes:"
-	@du -sh cache/* 2>/dev/null || echo "No cache found"
+docker-run-with-redis:
+	@echo "Starting services with Redis using Docker Compose..."
+	docker-compose --profile with-redis up -d
 
-# Test setup (without Docker) - Use health endpoint instead
-test-local:
-	@echo "🧪 Testing local setup..."
-	@echo "💡 Use 'make health' to test the running application"
-	@echo "💡 Or run 'python -c \"from app.hardware_detector import hardware_detector; hardware_detector.print_hardware_info()\"' for hardware info"
+docker-stop:
+	@echo "Stopping Docker containers..."
+	docker-compose down
 
-# Quick start (cache, build, run)
-start: cache build run
-	@echo "🎉 Quick start completed!"
-	@echo "📍 Application should be available at http://localhost:8000"
-	@echo "🏥 Health check: http://localhost:8000/health"
+logs:
+	@echo "Viewing application logs..."
+	docker-compose logs -f whisper-diarization-server
 
-# Docker-only quick start (no local Python required)
-start-docker: build run
-	@echo "🎉 Docker-only start completed!"
-	@echo "📍 Application should be available at http://localhost:8000"
-	@echo "🏥 Health check: http://localhost:8000/health"
-	@echo "💡 Models will be downloaded during first run in container"
+shell:
+	@echo "Opening shell in running container..."
+	docker-compose exec whisper-diarization-server /bin/bash
 
-# Development mode (run locally without Docker)
-dev: install-deps
-	@echo "🔧 Starting development server..."
-	uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+# Health check
+health:
+	@echo "Checking server health..."
+	curl -f http://localhost:8000/health || echo "Server is not running"
+
+# Model management
+preload-models: download-models
+
+# Development helpers
+check-deps:
+	@echo "Checking dependencies..."
+	python -c "import torch, whisper, pyannote.audio; print('✓ All dependencies available')"
+
+info:
+	@echo "System Information:"
+	@echo "Python version: $$(python --version)"
+	@echo "PyTorch version: $$(python -c 'import torch; print(torch.__version__)')"
+	@echo "CUDA available: $$(python -c 'import torch; print(torch.cuda.is_available())')"
+	@echo "GPU count: $$(python -c 'import torch; print(torch.cuda.device_count() if torch.cuda.is_available() else 0)')"
