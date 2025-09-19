@@ -31,7 +31,7 @@ WORKDIR /app
 RUN mkdir -p /app/cache/models /app/cache/huggingface /app/cache/whisper /app/cache/pip
 
 # Install PyTorch with CUDA support (configurable CUDA wheel channel)
-ARG TORCH_CUDA_TAG=cu123
+ARG TORCH_CUDA_TAG=cu121
 RUN pip install torch==2.4.0 torchvision==0.19.0 torchaudio==2.4.0 --index-url https://download.pytorch.org/whl/${TORCH_CUDA_TAG}
 
 # Copy requirements first for Docker layer caching
