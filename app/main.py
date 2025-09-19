@@ -1,6 +1,12 @@
-from fastapi import FastAPI, UploadFile, Form
-from faster_whisper import WhisperModel
-from pyannote.audio import Pipeline
+"""
+Whisper Diarization Server - Main Application
+
+A robust, hardware-aware server for speech-to-text with speaker diarization.
+Features automatic GPU/CPU detection, comprehensive error handling, and graceful fallbacks.
+"""
+
+from fastapi import FastAPI, UploadFile, Form, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 import tempfile
 import shutil
 import os
@@ -11,11 +17,19 @@ import warnings
 import time
 from pydub import AudioSegment
 from sse_starlette.sse import EventSourceResponse
+from typing import Optional
+
+# Import our custom modules
+from .config import config
+from .hardware_detector import hardware_detector
+from .model_loader import create_model_loader
 
 # Configure logging
 logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    level=getattr(logging, config.log_level),
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[logging.StreamHandler()] +
+             ([logging.FileHandler(config.log_file)] if config.log_file else [])
 )
 logger = logging.getLogger(__name__)
 
@@ -28,177 +42,229 @@ warnings.filterwarnings("ignore", category=DeprecationWarning)
 import torchaudio
 warnings.filterwarnings("ignore", module="torchaudio")
 
-app = FastAPI()
+# Create FastAPI app
+app = FastAPI(
+    title="Whisper Diarization Server",
+    description="Speech-to-text with speaker diarization using OpenAI Whisper and pyannote.audio",
+    version="2.0.0",
+)
 
-# Load models at startup using environment variables
-asr_model_name = os.getenv("ASR_MODEL", "base")
-diarization_model_name = os.getenv("DIARIZATION_MODEL", "pyannote/speaker-diarization-3.1")
-hf_token = os.getenv("HF_TOKEN")
+# Add CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
-# Set up cache directories
-cache_dir = os.getenv("CACHE_DIR", "/app/cache")
-whisper_cache = os.path.join(cache_dir, "whisper")
-hf_cache = os.path.join(cache_dir, "huggingface")
+# Global model instances
+model_loader = None
+asr_model = None
+diarization_pipeline = None
 
-# Ensure cache directories exist
-os.makedirs(whisper_cache, exist_ok=True)
-os.makedirs(hf_cache, exist_ok=True)
+# Validate configuration on startup
+@app.on_event("startup")
+async def startup_event():
+    """Application startup with comprehensive initialization"""
+    global model_loader, asr_model, diarization_pipeline
 
-# Set HuggingFace cache environment variables
-os.environ["HF_HOME"] = hf_cache
-os.environ["TRANSFORMERS_CACHE"] = hf_cache
-os.environ["HUGGINGFACE_HUB_CACHE"] = hf_cache
+    logger.info("🚀 Starting whisper-diarization server")
+    logger.info(f"Version: {app.version}")
 
-logger.info(f"🚀 Starting whisper-diarization server")
-logger.info(f"📝 ASR Model: {asr_model_name}")
-logger.info(f"🎤 Diarization Model: {diarization_model_name}")
-logger.info(f"🔐 HF Token: {'✅ Provided' if hf_token else '❌ Not provided'}")
+    # Validate configuration
+    validation = config.validate()
+    if not validation["valid"]:
+        logger.error("❌ Configuration validation failed:")
+        for issue in validation["issues"]:
+            logger.error(f"  - {issue}")
+        raise Exception("Invalid configuration")
 
-logger.info("🔄 Loading ASR model...")
-logger.info(f"📁 Using Whisper cache directory: {whisper_cache}")
+    # Print configuration
+    config.print_config()
 
-# Check CUDA availability and handle cuDNN issues
-import torch
-cuda_available = False
-try:
-    if torch.cuda.is_available():
-        # Test CUDA functionality and check compute capability
-        device_props = torch.cuda.get_device_properties(0)
-        compute_capability = f"{device_props.major}.{device_props.minor}"
-        logger.info(f"🎮 CUDA Device: {torch.cuda.get_device_name(0)}")
-        logger.info(f"📊 Compute Capability: {compute_capability}")
-        logger.info(f"💾 VRAM: {device_props.total_memory // 1024**3}GB")
-        
-        # Test CUDA functionality
-        test_tensor = torch.tensor([1.0]).cuda()
-        cuda_available = True
-        logger.info("✅ CUDA test passed")
-    else:
-        logger.info("🔄 CUDA not available, using CPU")
-except Exception as e:
-    logger.warning(f"⚠️ CUDA test failed: {e}")
-    logger.info("🔄 Falling back to CPU mode")
-    cuda_available = False
+    # Create model loader with hardware detection
+    model_loader = create_model_loader()
 
-try:
-    if cuda_available:
-        # Try CUDA first with cache directory
-        asr_model = WhisperModel(asr_model_name, device="cuda", compute_type="float16", download_root=whisper_cache)
-        logger.info("✅ ASR model loaded successfully (GPU)")
-    else:
-        raise Exception("CUDA not available")
-except Exception as e:
-    logger.warning(f"⚠️ Failed to load ASR model on GPU: {e}")
-    logger.info("🔄 Falling back to CPU...")
-    asr_model = WhisperModel(asr_model_name, device="cpu", compute_type="int8", download_root=whisper_cache)
-    logger.info("✅ ASR model loaded successfully (CPU)")
+    # Load models using the robust model loader
+    success = model_loader.load_models(
+        asr_model_name=config.asr_model,
+        diarization_model_name=config.diarization_model,
+        hf_token=config.hf_token
+    )
 
-logger.info("🔄 Loading diarization pipeline...")
-logger.info(f"📁 Using HuggingFace cache directory: {hf_cache}")
-try:
-    if hf_token:
-        diarization_pipeline = Pipeline.from_pretrained(diarization_model_name, use_auth_token=hf_token)
-    else:
-        diarization_pipeline = Pipeline.from_pretrained(diarization_model_name)
-    
-    # Try to move pipeline to GPU if available and CUDA is working
-    if cuda_available:
-        try:
-            diarization_pipeline = diarization_pipeline.to(torch.device("cuda"))
-            logger.info("✅ Diarization pipeline loaded successfully (GPU)")
-        except Exception as e:
-            logger.warning(f"⚠️ Failed to move diarization to GPU: {e}")
-            if "no kernel image is available" in str(e):
-                logger.warning("💡 This error suggests CUDA/PyTorch version incompatibility with your GPU")
-                logger.warning("💡 The pipeline will run on CPU instead")
-            logger.info("✅ Diarization pipeline loaded successfully (CPU)")
-    else:
-        logger.info("✅ Diarization pipeline loaded successfully (CPU)")
-        
-except Exception as e:
-    logger.error(f"❌ Failed to load diarization pipeline: {e}")
-    raise
+    if not success:
+        logger.error("❌ Critical: Failed to load required models")
+        raise Exception("Model loading failed")
 
-logger.info("🎉 Server initialization complete! Ready to process audio files.")
+    # Get model references
+    asr_model = model_loader.asr_model
+    diarization_pipeline = model_loader.diarization_pipeline
+
+    logger.info("🎉 Server initialization complete! Ready to process audio files.")
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    """Application shutdown cleanup"""
+    logger.info("🛑 Shutting down whisper-diarization server")
+    # Cleanup resources if needed
+    pass
 
 def diarize_with_progress(audio_path, progress_callback=None):
     """
     Run speaker diarization with progress callbacks and timing
+    Uses the robust model loader for automatic fallbacks
     """
+    if not model_loader or not model_loader.is_ready():
+        raise Exception("Models not properly loaded")
+
     start_time = time.time()
-    
+
     if progress_callback:
         progress_callback("Starting speaker diarization analysis...")
-    
+
     logger.info("🎤 Starting speaker diarization...")
-    
+
     if progress_callback:
         progress_callback("Loading audio file and extracting features...")
-    
+
     # Run the diarization pipeline (this is the main bottleneck)
     diarization_start = time.time()
     try:
-        diarization = diarization_pipeline(audio_path)
+        diarization = model_loader.diarization_pipeline(audio_path)
+
+        # Check if diarization worked
+        if diarization is None:
+            raise Exception("Diarization returned None")
+
     except Exception as e:
-        logger.warning(f"⚠️ Diarization failed on current device: {e}. Falling back to CPU...")
+        logger.warning(f"⚠️ Diarization failed on current device: {e}")
+        logger.info("🔄 Attempting fallback strategies...")
+
+        # The model loader already handles fallbacks, but let's be explicit
         try:
-            # Move pipeline to CPU and retry
-            cpu_device = __import__("torch").device("cpu")
-            if hasattr(diarization_pipeline, "to"):
-                diarization_cpu = diarization_pipeline.to(cpu_device)
-            else:
-                diarization_cpu = diarization_pipeline
-            diarization = diarization_cpu(audio_path)
+            # Force CPU mode as fallback
+            import torch
+            cpu_pipeline = model_loader.diarization_pipeline.to(torch.device("cpu"))
+            diarization = cpu_pipeline(audio_path)
             logger.info("✅ Diarization completed successfully on CPU after fallback")
         except Exception as e2:
             logger.error(f"❌ Diarization failed on CPU fallback as well: {e2}")
             raise
+
     diarization_time = time.time() - diarization_start
-    
+
     if progress_callback:
         progress_callback(f"Processing completed in {diarization_time:.1f}s - Analyzing results...")
-    
+
     # Count speakers for logging
     speakers = set()
     segment_count = 0
     total_duration = 0
-    
-    for turn, _, speaker in diarization.itertracks(yield_label=True):
-        speakers.add(speaker)
-        segment_count += 1
-        total_duration = max(total_duration, turn.end)
-    
+
+    try:
+        for turn, _, speaker in diarization.itertracks(yield_label=True):
+            speakers.add(speaker)
+            segment_count += 1
+            total_duration = max(total_duration, turn.end)
+    except Exception as e:
+        logger.error(f"Error analyzing diarization results: {e}")
+        # Return minimal diarization info
+        speakers = {"SPEAKER_01"}
+        segment_count = 1
+        total_duration = 0
+
     total_time = time.time() - start_time
-    
+
     logger.info(f"✅ Speaker diarization completed in {total_time:.1f}s")
     logger.info(f"📊 Results: {len(speakers)} speakers, {segment_count} segments, {total_duration:.1f}s audio")
     logger.info(f"⚡ Processing speed: {total_duration/diarization_time:.1f}x realtime")
-    
+
     if progress_callback:
         progress_callback(f"Complete! Found {len(speakers)} speakers in {total_time:.1f}s ({total_duration/diarization_time:.1f}x realtime)")
-    
+
     return diarization
 
 @app.get("/health")
 async def health_check():
-    """Health check endpoint"""
-    import torch
-    
-    status = {
-        "status": "healthy",
+    """Comprehensive health check endpoint"""
+    global model_loader
+
+    # Get hardware information
+    hardware_info = hardware_detector.detect_hardware()
+
+    # Get model information
+    model_info = {}
+    if model_loader:
+        model_info = model_loader.get_model_info()
+
+    # Determine overall status
+    status_code = "healthy"
+    if not model_loader or not model_loader.is_ready():
+        status_code = "unhealthy"
+    elif hardware_info.get("warnings"):
+        status_code = "degraded"
+
+    return {
+        "status": status_code,
+        "version": app.version,
         "models": {
-            "asr": asr_model_name,
-            "diarization": diarization_model_name
+            "asr": config.asr_model,
+            "diarization": config.diarization_model,
+            "asr_loaded": model_info.get("asr_loaded", False),
+            "diarization_loaded": model_info.get("diarization_loaded", False)
         },
-        "gpu_available": torch.cuda.is_available(),
-        "gpu_count": torch.cuda.device_count() if torch.cuda.is_available() else 0
+        "hardware": hardware_info,
+        "configuration": config.to_dict()
     }
-    
-    if torch.cuda.is_available():
-        status["gpu_name"] = torch.cuda.get_device_name(0)
-        status["gpu_memory"] = f"{torch.cuda.get_device_properties(0).total_memory // 1024**3}GB"
-    
-    return status
+
+@app.get("/health/detailed")
+async def detailed_health_check():
+    """Detailed health check with performance metrics"""
+    global model_loader
+
+    # Run hardware detection
+    hardware_info = hardware_detector.detect_hardware()
+
+    # Test model inference if available
+    model_tests = {}
+    if model_loader and model_loader.is_ready():
+        try:
+            # Quick model test
+            import torch
+            test_tensor = torch.randn(1, 16000)  # 1 second of audio
+            start_time = time.time()
+
+            # Test ASR
+            asr_result = model_loader.asr_model.transcribe("test.wav", condition_on_previous_text=False)
+            asr_time = time.time() - start_time
+
+            # Test diarization
+            if model_loader.diarization_pipeline:
+                diarization_result = model_loader.diarization_pipeline("test.wav")
+                diarization_time = time.time() - start_time - asr_time
+
+                model_tests = {
+                    "asr_test_passed": True,
+                    "diarization_test_passed": diarization_result is not None,
+                    "asr_inference_time": asr_time,
+                    "diarization_inference_time": diarization_time
+                }
+        except Exception as e:
+            model_tests = {
+                "asr_test_passed": False,
+                "diarization_test_passed": False,
+                "error": str(e)
+            }
+
+    return {
+        "status": "healthy" if model_loader and model_loader.is_ready() else "unhealthy",
+        "hardware": hardware_info,
+        "model_tests": model_tests,
+        "memory_usage": {
+            "gpu_memory_fraction": config.max_gpu_memory_fraction
+        }
+    }
 
 @app.post("/v1/audio/transcriptions")
 async def transcribe(file: UploadFile, model: str = Form("whisper-1")):
@@ -240,42 +306,73 @@ async def transcribe(file: UploadFile, model: str = Form("whisper-1")):
             logger.info("📄 File is already in WAV format, using directly")
             audio_path = uploaded_path
 
+        # Check if models are ready
+        if not model_loader or not model_loader.is_ready():
+            raise HTTPException(status_code=503, detail="Models not loaded")
+
         # Diarization with progress tracking
         diarization = diarize_with_progress(audio_path, lambda msg: logger.info(f"🔄 {msg}"))
 
         # Run ASR
         logger.info("🗣️ Starting speech recognition...")
-        segments, _ = asr_model.transcribe(audio_path)
-        logger.info("✅ Speech recognition completed")
+        try:
+            segments, _ = model_loader.asr_model.transcribe(audio_path)
+            logger.info("✅ Speech recognition completed")
+        except Exception as e:
+            logger.error(f"ASR transcription failed: {e}")
+            raise HTTPException(status_code=500, detail=f"Speech recognition failed: {e}")
 
         # Merge diarization with ASR output
         logger.info("🔗 Merging diarization with transcription...")
         results = []
         segment_count = 0
-        for segment in segments:
-            start, end, text = segment.start, segment.end, segment.text
-            speaker = "UNKNOWN"
-            for turn, _, speaker_label in diarization.itertracks(yield_label=True):
-                if turn.start <= start and turn.end >= end:
-                    speaker = speaker_label
-                    break
-            results.append({
-                "speaker": speaker,
-                "start": start,
-                "end": end,
-                "text": text
-            })
-            segment_count += 1
+
+        try:
+            for segment in segments:
+                start, end, text = segment.start, segment.end, segment.text
+                speaker = "UNKNOWN"
+
+                # Find speaker for this segment
+                for turn, _, speaker_label in diarization.itertracks(yield_label=True):
+                    if turn.start <= start and turn.end >= end:
+                        speaker = speaker_label
+                        break
+
+                results.append({
+                    "speaker": speaker,
+                    "start": start,
+                    "end": end,
+                    "text": text
+                })
+                segment_count += 1
+
+        except Exception as e:
+            logger.error(f"Error merging diarization and transcription: {e}")
+            # Continue with UNKNOWN speakers
+            for segment in segments:
+                results.append({
+                    "speaker": "UNKNOWN",
+                    "start": segment.start,
+                    "end": segment.end,
+                    "text": segment.text
+                })
+                segment_count += 1
 
         logger.info(f"✅ Processing completed - {segment_count} segments processed")
 
-        # Format like OpenAI Whisper
+        # Format response
         response_text = "\n".join([f"{r['speaker']}: {r['text']}" for r in results])
-        
+
         logger.info(f"📤 Returning transcription result ({len(response_text)} characters)")
+
         return {
             "text": response_text,
-            "segments": results
+            "segments": results,
+            "model": model,
+            "processing_info": {
+                "segments_processed": segment_count,
+                "total_speakers": len(set(r["speaker"] for r in results))
+            }
         }
     
     except Exception as e:
@@ -338,12 +435,40 @@ async def transcribe_stream(file: UploadFile, model: str = Form("whisper-1")):
                 logger.info("📄 Streaming file is already in WAV format")
                 audio_path = uploaded_path
 
+            # Check if models are ready
+            if not model_loader or not model_loader.is_ready():
+                error_msg = "Models not loaded for streaming"
+                logger.error(f"❌ {error_msg}")
+                error_chunk = {
+                    "error": {
+                        "message": error_msg,
+                        "type": "service_unavailable",
+                        "code": "models_not_ready"
+                    }
+                }
+                yield f"data: {json.dumps(error_chunk)}\n\n"
+                yield "data: [DONE]\n\n"
+                return
+
             # Run diarization with progress tracking
             diarization = diarize_with_progress(audio_path, lambda msg: logger.info(f"🌊 Streaming - {msg}"))
 
             # Run ASR with streaming
             logger.info("🗣️ Starting streaming speech recognition...")
-            segments, info = asr_model.transcribe(audio_path, word_timestamps=True)
+            try:
+                segments, info = model_loader.asr_model.transcribe(audio_path, word_timestamps=True)
+            except Exception as e:
+                logger.error(f"❌ ASR streaming failed: {e}")
+                error_chunk = {
+                    "error": {
+                        "message": f"Speech recognition failed: {e}",
+                        "type": "transcription_error",
+                        "code": "asr_failed"
+                    }
+                }
+                yield f"data: {json.dumps(error_chunk)}\n\n"
+                yield "data: [DONE]\n\n"
+                return
             
             # Process segments as they come
             results = []

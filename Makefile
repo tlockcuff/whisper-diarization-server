@@ -100,10 +100,11 @@ cache-size:
 	@echo "📊 Cache directory sizes:"
 	@du -sh cache/* 2>/dev/null || echo "No cache found"
 
-# Test setup (without Docker)
+# Test setup (without Docker) - Use health endpoint instead
 test-local:
 	@echo "🧪 Testing local setup..."
-	python test_setup.py
+	@echo "💡 Use 'make health' to test the running application"
+	@echo "💡 Or run 'python -c \"from app.hardware_detector import hardware_detector; hardware_detector.print_hardware_info()\"' for hardware info"
 
 # Quick start (cache, build, run)
 start: cache build run

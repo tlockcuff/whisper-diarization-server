@@ -1,6 +1,13 @@
-# Whisper Diarization Server
+# Whisper Diarization Server v2.0
 
-A FastAPI-based server that provides speaker diarization and speech recognition using OpenAI Whisper and pyannote.audio.
+A robust, hardware-aware FastAPI server that provides speaker diarization and speech recognition using OpenAI Whisper and pyannote.audio.
+
+## ✨ New in v2.0
+- **Hardware Detection**: Automatic GPU compatibility checking
+- **Modular Architecture**: Clean separation of concerns
+- **Robust Error Handling**: Graceful fallbacks and recovery
+- **Configuration Management**: Flexible environment-based configuration
+- **Enhanced Monitoring**: Detailed health checks and diagnostics
 
 ## Features
 
@@ -11,6 +18,32 @@ A FastAPI-based server that provides speaker diarization and speech recognition 
 - 🔧 **CPU/GPU Support**: Automatic fallback to CPU if GPU unavailable
 - 📦 **Local Caching**: Cache models locally for faster builds and offline usage
 - 🐳 **Docker Support**: Containerized deployment with CUDA support
+
+## Architecture
+
+### Core Modules
+
+1. **Hardware Detection** (`app/hardware_detector.py`)
+   - Automatic GPU compatibility checking
+   - Compute capability detection
+   - Memory and performance analysis
+   - Compatibility recommendations
+
+2. **Model Loading** (`app/model_loader.py`)
+   - Robust model loading with fallbacks
+   - Hardware-aware device selection
+   - Automatic retry mechanisms
+   - Memory management
+
+3. **Configuration** (`app/config.py`)
+   - Environment-based configuration
+   - Validation and error checking
+   - Flexible parameter management
+
+4. **Main Application** (`app/main.py`)
+   - FastAPI server with enhanced endpoints
+   - Comprehensive error handling
+   - Health monitoring and diagnostics
 
 ## Quick Start
 

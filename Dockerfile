@@ -37,6 +37,9 @@ RUN mkdir -p /app/cache/models /app/cache/huggingface /app/cache/whisper /app/ca
 ARG TORCH_CUDA_TAG=cu124
 RUN pip install torch==2.5.1 torchvision==0.20.1 torchaudio==2.5.1 --index-url https://download.pytorch.org/whl/${TORCH_CUDA_TAG}
 
+# Install additional dependencies
+RUN pip install python-dotenv>=1.0.0
+
 # Copy requirements first for Docker layer caching
 COPY requirements.txt .
 
