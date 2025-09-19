@@ -243,12 +243,12 @@ async def detailed_health_check():
                 diarization_test_passed = hasattr(model_loader.diarization_pipeline, '_pipeline') and model_loader.diarization_pipeline._pipeline is not None
             diarization_time = time.time() - start_time - asr_time
 
-                model_tests = {
-                    "asr_test_passed": asr_test_passed,
-                    "diarization_test_passed": diarization_test_passed,
-                    "asr_inference_time": asr_time,
-                    "diarization_inference_time": diarization_time
-                }
+            model_tests = {
+                "asr_test_passed": asr_test_passed,
+                "diarization_test_passed": diarization_test_passed,
+                "asr_inference_time": asr_time,
+                "diarization_inference_time": diarization_time
+            }
         except Exception as e:
             model_tests = {
                 "asr_test_passed": False,
