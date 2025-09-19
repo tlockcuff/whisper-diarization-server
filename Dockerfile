@@ -1,5 +1,5 @@
-# Use PyTorch official image with more stable CUDA/cuDNN combination
-FROM pytorch/pytorch:2.0.1-cuda11.7-cudnn8-runtime
+# Use PyTorch official image with CUDA 12.x and cuDNN 9.x for latest package compatibility
+FROM pytorch/pytorch:2.4.0-cuda12.4-cudnn9-runtime
 
 # Configure timezone to prevent interactive prompts
 ENV DEBIAN_FRONTEND=noninteractive
