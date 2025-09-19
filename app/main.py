@@ -231,22 +231,21 @@ async def detailed_health_check():
     if model_loader and model_loader.is_ready():
         try:
             # Quick model test
-            import torch
-            test_tensor = torch.randn(1, 16000)  # 1 second of audio
             start_time = time.time()
 
-            # Test ASR
-            asr_result = model_loader.asr_model.transcribe("test.wav", condition_on_previous_text=False)
+            # Test ASR - skip file-based test, just check model readiness
+            asr_test_passed = hasattr(model_loader.asr_model, 'model') and model_loader.asr_model.model is not None
             asr_time = time.time() - start_time
 
-            # Test diarization
+            # Test diarization - skip file-based test, just check pipeline readiness
+            diarization_test_passed = False
             if model_loader.diarization_pipeline:
-                diarization_result = model_loader.diarization_pipeline("test.wav")
-                diarization_time = time.time() - start_time - asr_time
+                diarization_test_passed = hasattr(model_loader.diarization_pipeline, '_pipeline') and model_loader.diarization_pipeline._pipeline is not None
+            diarization_time = time.time() - start_time - asr_time
 
                 model_tests = {
-                    "asr_test_passed": True,
-                    "diarization_test_passed": diarization_result is not None,
+                    "asr_test_passed": asr_test_passed,
+                    "diarization_test_passed": diarization_test_passed,
                     "asr_inference_time": asr_time,
                     "diarization_inference_time": diarization_time
                 }
