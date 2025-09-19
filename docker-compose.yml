@@ -1,10 +1,16 @@
 services:
   stt-server:
-    build: .
+    build:
+      context: .
+      args:
+        ASR_MODEL: ${ASR_MODEL}
+        DIARIZATION_MODEL: ${DIARIZATION_MODEL}
     container_name: stt-server
     restart: unless-stopped
     ports:
       - "8000:8000"
+    env_file:
+      - .env
     deploy:
       resources:
         reservations:
