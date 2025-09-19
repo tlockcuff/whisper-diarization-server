@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Streaming Transcription Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .upload-area {
+            border: 2px dashed #ccc;
+            border-radius: 10px;
+            padding: 20px;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .status {
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+            font-weight: bold;
+        }
+        .status.processing {
+            background-color: #e3f2fd;
+            color: #1976d2;
+        }
+        .status.completed {
+            background-color: #e8f5e8;
+            color: #2e7d32;
+        }
+        .status.error {
+            background-color: #ffebee;
+            color: #c62828;
+        }
+        .segment {
+            background-color: #f5f5f5;
+            border-left: 4px solid #2196f3;
+            padding: 10px;
+            margin: 5px 0;
+            border-radius: 4px;
+        }
+        .timestamp {
+            font-size: 0.8em;
+            color: #666;
+        }
+        .speaker {
+            font-weight: bold;
+            color: #1976d2;
+        }
+        #results {
+            max-height: 400px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            padding: 10px;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <h1>🎙️ OpenAI-Compatible Streaming Transcription</h1>
+    
+    <div class="upload-area">
+        <input type="file" id="audioFile" accept="audio/*">
+        <button onclick="startStreaming()">Start Streaming Transcription</button>
+    </div>
+    
+    <div id="status"></div>
+    <div id="results"></div>
+    
+    <script>
+        let eventSource = null;
+        
+        function startStreaming() {
+            const fileInput = document.getElementById('audioFile');
+            const file = fileInput.files[0];
+            
+            if (!file) {
+                alert('Please select an audio file first');
+                return;
+            }
+            
+            // Clear previous results
+            document.getElementById('results').innerHTML = '';
+            document.getElementById('status').innerHTML = '';
+            
+            // Create form data
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('model', 'whisper-1');
+            
+            // Start streaming request
+            fetch('http://localhost:8000/v1/audio/transcriptions/stream', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                
+                function readStream() {
+                    return reader.read().then(({ done, value }) => {
+                        if (done) {
+                            console.log('Stream complete');
+                            return;
+                        }
+                        
+                        const chunk = decoder.decode(value, { stream: true });
+                        const lines = chunk.split('\n');
+                        
+                        for (const line of lines) {
+                            if (line.startsWith('data: ')) {
+                                const dataStr = line.slice(6);
+                                
+                                if (dataStr === '[DONE]') {
+                                    showStatus('Stream completed!', 'completed');
+                                    return;
+                                }
+                                
+                                try {
+                                    const data = JSON.parse(dataStr);
+                                    handleOpenAIStreamData(data);
+                                } catch (e) {
+                                    console.error('Error parsing JSON:', e, 'Line:', line);
+                                }
+                            }
+                        }
+                        
+                        return readStream();
+                    });
+                }
+                
+                return readStream();
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showStatus('Error: ' + error.message, 'error');
+            });
+        }
+        
+        function handleStreamData(data) {
+            const resultsDiv = document.getElementById('results');
+            
+            if (data.status) {
+                showStatus(data.message || data.status, data.status === 'completed' ? 'completed' : 'processing');
+            }
+            
+            if (data.segment) {
+                const segmentDiv = document.createElement('div');
+                segmentDiv.className = 'segment';
+                segmentDiv.innerHTML = `
+                    <div class="timestamp">${data.timestamp} (Segment ${data.segment_count})</div>
+                    <div><span class="speaker">${data.segment.speaker}:</span> ${data.segment.text}</div>
+                `;
+                resultsDiv.appendChild(segmentDiv);
+                resultsDiv.scrollTop = resultsDiv.scrollHeight;
+            }
+            
+            if (data.status === 'completed') {
+                console.log('Final results:', data);
+                showStatus(`Completed! Processed ${data.total_segments} segments.`, 'completed');
+            }
+            
+            if (data.error) {
+                showStatus('Error: ' + data.error, 'error');
+            }
+        }
+        
+        function showStatus(message, type) {
+            const statusDiv = document.getElementById('status');
+            statusDiv.innerHTML = `<div class="status ${type}">${message}</div>`;
+        }
+    </script>
+</body>
+</html>

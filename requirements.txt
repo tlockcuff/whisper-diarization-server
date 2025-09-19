@@ -6,3 +6,4 @@ pyannote.audio
 torch
 torchaudio
 pydub
+sse-starlette
