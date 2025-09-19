@@ -1,17 +1,18 @@
 services:
   stt-server:
-    build:
+    build: 
       context: .
       args:
-        HF_TOKEN: ${HF_TOKEN}
-        ASR_MODEL: ${ASR_MODEL}
-        DIARIZATION_MODEL: ${DIARIZATION_MODEL}
-    container_name: stt-server
+        - ASR_MODEL=${ASR_MODEL:-base}
+        - DIARIZATION_MODEL=${DIARIZATION_MODEL:-pyannote/speaker-diarization-3.1}
+        - HF_TOKEN=${HF_TOKEN}
     restart: unless-stopped
     ports:
       - "8000:8000"
-    env_file:
-      - .env
+    environment:
+      - ASR_MODEL=${ASR_MODEL:-base}
+      - DIARIZATION_MODEL=${DIARIZATION_MODEL:-pyannote/speaker-diarization-3.1}
+      - HF_TOKEN=${HF_TOKEN}
     deploy:
       resources:
         reservations:

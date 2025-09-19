@@ -7,9 +7,16 @@ import os
 
 app = FastAPI()
 
-# Load models at startup
-asr_model = WhisperModel("large-v3", device="cuda", compute_type="float16")
-diarization_pipeline = Pipeline.from_pretrained("pyannote/speaker-diarization-3.1")
+# Load models at startup using environment variables
+asr_model_name = os.getenv("ASR_MODEL", "base")
+diarization_model_name = os.getenv("DIARIZATION_MODEL", "pyannote/speaker-diarization-3.1")
+hf_token = os.getenv("HF_TOKEN")
+
+asr_model = WhisperModel(asr_model_name, device="cuda", compute_type="float16")
+if hf_token:
+    diarization_pipeline = Pipeline.from_pretrained(diarization_model_name, use_auth_token=hf_token)
+else:
+    diarization_pipeline = Pipeline.from_pretrained(diarization_model_name)
 
 @app.post("/v1/audio/transcriptions")
 async def transcribe(file: UploadFile, model: str = Form("whisper-1")):
