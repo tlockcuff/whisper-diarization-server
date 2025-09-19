@@ -37,6 +37,7 @@ def download_whisper_model(model_name: str, cache_dir: Path) -> None:
         os.environ["WHISPER_CACHE_DIR"] = str(cache_dir / "whisper")
 
         # Download model
+        logger.info("Loading Whisper model (this may take a while on first run)...")
         model = whisper.load_model(model_name, download_root=str(cache_dir))
 
         # Test model loading
@@ -48,6 +49,10 @@ def download_whisper_model(model_name: str, cache_dir: Path) -> None:
 
     except Exception as e:
         logger.error(f"✗ Failed to download Whisper model {model_name}: {e}")
+        logger.info("💡 Suggestions:")
+        logger.info("   - Check your internet connection")
+        logger.info("   - Ensure you have enough disk space")
+        logger.info("   - Try using a smaller model: --whisper-model medium")
         raise
 
 

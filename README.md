@@ -29,63 +29,58 @@ Supports OpenAI API REST Response Streaming (/v1/audio/transcriptions)
 ### Expected Hardware (as mentioned)
 - 2x Nvidia RTX 5060 Ti (for high-performance deployment)
 
-## Quick Start
+## Quick Start (Docker - Recommended)
 
-### 1. Clone and Setup
+### 1. Install Docker
+
+```bash
+# Install Docker on Ubuntu 24.04
+curl -fsSL https://get.docker.com -o get-docker.sh
+sudo sh get-docker.sh
+sudo apt install docker-compose-plugin
+```
+
+### 2. Clone and Setup
 
 ```bash
 git clone <repository-url>
 cd whisper-diarization-server
 ```
 
-### 2. Install Dependencies
+### 3. Start the Server
 
 ```bash
-# Using the Makefile (recommended)
-make install
+# Start production server (GPU-enabled)
+make docker-run
 
-# Or manually
-python3 -m venv venv
-source venv/bin/activate
-pip install --upgrade pip
-pip install -r requirements.txt
+# Or start development server (CPU, live reload)
+make docker-dev
 ```
 
-### 3. Download Models
+The server will be available at:
+- **Production**: http://localhost:8000
+- **Development**: http://localhost:8001
+
+### 4. Download Models (if needed)
 
 ```bash
-# Download Whisper and Pyannote models
-make download-models
-
-# Or manually
-python download_models.py
+# Download models in container
+make download-models-dev
 ```
 
-### 4. Configure Environment
+### 5. Check Status
 
 ```bash
-# Copy environment template
-cp env.example .env
+# View logs
+make logs
 
-# Edit configuration as needed
-nano .env
+# Health check
+curl http://localhost:8000/health
 ```
 
-### 5. Run the Server
+## Alternative: Native Installation (Not Recommended)
 
-```bash
-# Development mode
-make dev
-
-# Production mode
-make run
-
-# Or manually (after activating virtual environment)
-source venv/bin/activate
-python app/main.py
-```
-
-The server will start on `http://localhost:8000`
+If you prefer not to use Docker, see the troubleshooting section for Ubuntu 24.04 issues.
 
 **Note:** Makefile commands automatically use the virtual environment, so you don't need to manually activate it for `make` commands.
 
@@ -277,18 +272,39 @@ make check-deps    # Check dependencies
    - Check `nvidia-smi` command works
    - Set `USE_GPU=false` to force CPU mode
 
-### Virtual Environment Issues
+### Common Issues
 
-If you encounter "externally-managed-environment" errors when installing packages:
-
+**Docker not running:**
 ```bash
-# The Makefile handles this automatically
-make install
+# Start Docker service
+sudo systemctl start docker
+sudo systemctl enable docker
+```
 
-# Or create virtual environment manually
-python3 -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
+**Permission denied with Docker:**
+```bash
+# Add user to docker group
+sudo usermod -aG docker $USER
+# Then log out and back in
+```
+
+**Out of disk space:**
+```bash
+# Clean up Docker
+make docker-clean
+```
+
+**Models not downloading:**
+```bash
+# Download models manually in container
+make download-models-dev
+```
+
+**Port already in use:**
+```bash
+# Check what's using the port
+sudo netstat -tulpn | grep :8000
+# Or use different ports in docker-compose.yml
 ```
 
 ### Getting Help

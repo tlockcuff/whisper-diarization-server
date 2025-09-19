@@ -1,56 +1,70 @@
-# Git and version control
+# Git
 .git
 .gitignore
-.gitattributes
 
-# Documentation
-README.md
-*.md
+# Python
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+env
+venv
+.venv
+pip-log.txt
+pip-delete-this-directory.txt
+.tox
+.coverage
+.coverage.*
+.pytest_cache
+nosetests.xml
+coverage.xml
+*.cover
+*.log
+.venv/
+venv/
+ENV/
+env/
 
-# IDE and editor files
+# Virtual environments
+venv/
+.venv/
+
+# IDEs
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
 
-# OS specific files
+# OS
 .DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
 Thumbs.db
-
-# Python cache
-__pycache__/
-*.pyc
-*.pyo
-*.pyd
-.Python
-*.egg-info/
-.pytest_cache/
-
-# Virtual environments
-venv/
-env/
-.env
 
 # Logs
 *.log
+logs/
+
+# Cache (except model cache)
+.cache/
+.pytest_cache/
 
 # Temporary files
-*.tmp
-*.temp
+tmp/
+temp/
 
-# Docker files (don't copy Docker files into the image)
-Dockerfile*
+# Documentation
+*.md
+!README.md
+
+# Docker
+Dockerfile.*
 docker-compose*.yml
 
-# Test files
-test_*
-*_test.py
-
-# Development tools
-Makefile
-
-# Cache directory handling
-# Copy cache structure but allow Docker to handle missing content gracefully
-!cache/
-!cache/**
+# Scripts (not needed in container)
+*.sh
