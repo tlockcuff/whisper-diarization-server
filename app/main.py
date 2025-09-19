@@ -62,14 +62,22 @@ import torch
 cuda_available = False
 try:
     if torch.cuda.is_available():
+        # Test CUDA functionality and check compute capability
+        device_props = torch.cuda.get_device_properties(0)
+        compute_capability = f"{device_props.major}.{device_props.minor}"
+        logger.info(f"🎮 CUDA Device: {torch.cuda.get_device_name(0)}")
+        logger.info(f"📊 Compute Capability: {compute_capability}")
+        logger.info(f"💾 VRAM: {device_props.total_memory // 1024**3}GB")
+        
         # Test CUDA functionality
         test_tensor = torch.tensor([1.0]).cuda()
         cuda_available = True
-        logger.info(f"🎮 CUDA available: {torch.cuda.get_device_name(0)}")
+        logger.info("✅ CUDA test passed")
     else:
         logger.info("🔄 CUDA not available, using CPU")
 except Exception as e:
     logger.warning(f"⚠️ CUDA test failed: {e}")
+    logger.info("🔄 Falling back to CPU mode")
     cuda_available = False
 
 try:
@@ -93,14 +101,16 @@ try:
     else:
         diarization_pipeline = Pipeline.from_pretrained(diarization_model_name)
     
-    # Try to move pipeline to GPU if available
-    import torch
-    if torch.cuda.is_available():
+    # Try to move pipeline to GPU if available and CUDA is working
+    if cuda_available:
         try:
             diarization_pipeline = diarization_pipeline.to(torch.device("cuda"))
             logger.info("✅ Diarization pipeline loaded successfully (GPU)")
         except Exception as e:
             logger.warning(f"⚠️ Failed to move diarization to GPU: {e}")
+            if "no kernel image is available" in str(e):
+                logger.warning("💡 This error suggests CUDA/PyTorch version incompatibility with your GPU")
+                logger.warning("💡 The pipeline will run on CPU instead")
             logger.info("✅ Diarization pipeline loaded successfully (CPU)")
     else:
         logger.info("✅ Diarization pipeline loaded successfully (CPU)")

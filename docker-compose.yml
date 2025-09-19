@@ -17,6 +17,8 @@ services:
       - HF_TOKEN=${HF_TOKEN}
       - NVIDIA_VISIBLE_DEVICES=all
       - NVIDIA_DRIVER_CAPABILITIES=compute,utility
+      - TORCH_CUDA_ARCH_LIST=8.0;8.6;8.9;9.0
+      - CUDA_LAUNCH_BLOCKING=1
     volumes:
       # Mount local cache directories to persist models between container restarts
       - ./cache/huggingface:/app/cache/huggingface

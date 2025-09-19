@@ -1,5 +1,5 @@
 # Build custom PyTorch with RTX 5060 Ti support (compute capability 8.9)
-ARG CUDA_IMAGE_TAG=12.3.2-cudnn9-devel-ubuntu22.04
+ARG CUDA_IMAGE_TAG=12.4.1-cudnn-devel-ubuntu22.04
 FROM nvidia/cuda:${CUDA_IMAGE_TAG}
 
 # Configure timezone to prevent interactive prompts
@@ -10,6 +10,9 @@ ENV TZ=America/New_York
 ENV CUDA_MODULE_LOADING=LAZY
 ENV CUDNN_LOGINFO_DBG=0
 ENV CUDNN_LOGERR_DBG=0
+# Force CUDA architecture compatibility for RTX 5060 Ti (compute capability 8.9)
+ENV TORCH_CUDA_ARCH_LIST="8.0;8.6;8.9;9.0"
+ENV CUDA_LAUNCH_BLOCKING=1
 
 # Install Python and system dependencies
 RUN apt-get update && apt-get install -y \
@@ -31,8 +34,8 @@ WORKDIR /app
 RUN mkdir -p /app/cache/models /app/cache/huggingface /app/cache/whisper /app/cache/pip
 
 # Install PyTorch with CUDA support (configurable CUDA wheel channel)
-ARG TORCH_CUDA_TAG=cu121
-RUN pip install torch==2.4.0 torchvision==0.19.0 torchaudio==2.4.0 --index-url https://download.pytorch.org/whl/${TORCH_CUDA_TAG}
+ARG TORCH_CUDA_TAG=cu124
+RUN pip install torch==2.5.1 torchvision==0.20.1 torchaudio==2.5.1 --index-url https://download.pytorch.org/whl/${TORCH_CUDA_TAG}
 
 # Copy requirements first for Docker layer caching
 COPY requirements.txt .
