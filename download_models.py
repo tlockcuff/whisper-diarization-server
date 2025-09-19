@@ -44,7 +44,7 @@ def download_whisper_model(model_name: str, cache_dir: Path) -> None:
         model = model.to(device)
 
         logger.info(f"✓ Whisper model {model_name} downloaded and cached successfully")
-        logger.info(f"  Model size: {sum(p.numel() for p in model.parameters()) / 1e6".1f"}M parameters")
+        logger.info(f"  Model size: {sum(p.numel() for p in model.parameters()) / 1e6:.1f"}M parameters")
 
     except Exception as e:
         logger.error(f"✗ Failed to download Whisper model {model_name}: {e}")

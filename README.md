@@ -170,6 +170,11 @@ curl http://localhost:8000/models
 | `HUGGINGFACE_TOKEN` | - | Required for Pyannote models |
 | `CACHE_DIR` | `./cache` | Model cache directory |
 
+### Dependency Versions
+- PyTorch: 2.4.1+
+- Python: 3.8+
+- CUDA: 11.8+ (for GPU support)
+
 ### Models
 
 #### Whisper Models
