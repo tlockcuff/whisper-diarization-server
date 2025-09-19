@@ -50,5 +50,7 @@ test_*
 # Development tools
 Makefile
 
-# Only copy specific cache directories, not everything
-# This allows us to selectively copy cache/ in the Dockerfile
+# Cache directory handling
+# Copy cache structure but allow Docker to handle missing content gracefully
+!cache/
+!cache/**

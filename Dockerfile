@@ -15,9 +15,8 @@ RUN mkdir -p /app/cache/models /app/cache/huggingface /app/cache/whisper /app/ca
 # Copy requirements first for Docker layer caching
 COPY requirements.txt .
 
-# Use local pip cache if available, otherwise download
-COPY cache/pip/ /tmp/pip-cache/ 2>/dev/null || echo "No local pip cache found"
-RUN pip install --cache-dir /tmp/pip-cache --find-links /tmp/pip-cache -r requirements.txt
+# Install Python packages (will use cache if available during build)
+RUN pip install -r requirements.txt
 
 # Copy application code
 COPY app/ ./app
@@ -25,8 +24,8 @@ COPY app/ ./app
 # Copy model download script
 COPY download_models.py .
 
-# Copy cached models if they exist (this will be skipped if cache doesn't exist)
-COPY cache/ /app/cache/ 2>/dev/null || echo "No local model cache found"
+# Copy all cache directories (Docker will use .dockerignore to handle missing files)
+COPY cache/ /app/cache/
 
 # Set up environment variables with defaults
 ARG ASR_MODEL=base
