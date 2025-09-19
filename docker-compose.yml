@@ -7,7 +7,7 @@ services:
         - DIARIZATION_MODEL=${DIARIZATION_MODEL:-pyannote/speaker-diarization@2.1}
         - HF_TOKEN=${HF_TOKEN}
         - CUDA_IMAGE_TAG=${CUDA_IMAGE_TAG:-12.3.2-cudnn9-devel-ubuntu22.04}
-        - TORCH_CUDA_TAG=${TORCH_CUDA_TAG:-cu123}
+        - TORCH_CUDA_TAG=${TORCH_CUDA_TAG:-cu121}
     restart: unless-stopped
     ports:
       - "8000:8000"
