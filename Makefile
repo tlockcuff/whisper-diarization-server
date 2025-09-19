@@ -49,32 +49,32 @@ cache: download-models
 # Build Docker image
 build:
 	@echo "🐳 Building Docker image..."
-	docker-compose build
+	docker compose build
 
 # Build Docker image without cache (force rebuild)
 build-no-cache:
 	@echo "🐳 Building Docker image (no cache)..."
-	docker-compose build --no-cache
+	docker compose build --no-cache
 
 # Run the application
 run:
 	@echo "🚀 Starting application..."
-	docker-compose up -d
+	docker compose up -d
 
 # Run the application in foreground
 run-fg:
 	@echo "🚀 Starting application (foreground)..."
-	docker-compose up
+	docker compose up
 
 # Stop the application
 stop:
 	@echo "🛑 Stopping application..."
-	docker-compose down
+	docker compose down
 
 # Show logs
 logs:
 	@echo "📋 Showing application logs..."
-	docker-compose logs -f stt-server
+	docker compose logs -f stt-server
 
 # Check application health
 health:
@@ -84,7 +84,7 @@ health:
 # Clean up Docker resources
 clean:
 	@echo "🧹 Cleaning up Docker resources..."
-	docker-compose down -v
+	docker compose down -v
 	docker system prune -f
 
 # Clean cache directories
