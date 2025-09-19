@@ -155,17 +155,18 @@ async def transcribe_stream(file: UploadFile, model: str = Form("whisper-1")):
     """
     logger.info(f"🌊 Received streaming transcription request - File: {file.filename}, Model: {model}")
     
+    # Read the file content first to avoid stream closure issues
+    file_content = await file.read()
+    original_extension = None
+    if file.filename:
+        original_extension = os.path.splitext(file.filename)[1].lower()
+    
+    logger.info(f"📋 Streaming file details - Extension: {original_extension}, Size: {len(file_content)} bytes")
+    
     async def generate_openai_stream():
-        # Get file extension from uploaded file
-        original_extension = None
-        if file.filename:
-            original_extension = os.path.splitext(file.filename)[1].lower()
-        
-        logger.info(f"📋 Streaming file details - Extension: {original_extension}")
-        
-        # Save uploaded file to temp location
+        # Save uploaded file content to temp location
         with tempfile.NamedTemporaryFile(delete=False, suffix=original_extension or ".tmp") as tmp:
-            shutil.copyfileobj(file.file, tmp)
+            tmp.write(file_content)
             uploaded_path = tmp.name
         
         logger.info(f"💾 Saved streaming file to: {uploaded_path}")
