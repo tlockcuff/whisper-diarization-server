@@ -1,9 +1,14 @@
-# Use PyTorch official image which includes properly configured CUDA + cuDNN
-FROM pytorch/pytorch:2.1.0-cuda12.1-cudnn8-runtime
+# Use PyTorch official image with more stable CUDA/cuDNN combination
+FROM pytorch/pytorch:2.0.1-cuda11.7-cudnn8-runtime
 
 # Configure timezone to prevent interactive prompts
 ENV DEBIAN_FRONTEND=noninteractive
 ENV TZ=America/New_York
+
+# CUDA/cuDNN environment variables for better compatibility
+ENV CUDA_MODULE_LOADING=LAZY
+ENV CUDNN_LOGINFO_DBG=0
+ENV CUDNN_LOGERR_DBG=0
 
 # System deps
 RUN apt-get update && apt-get install -y \

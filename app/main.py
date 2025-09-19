@@ -56,10 +56,29 @@ logger.info(f"🔐 HF Token: {'✅ Provided' if hf_token else '❌ Not provided'
 
 logger.info("🔄 Loading ASR model...")
 logger.info(f"📁 Using Whisper cache directory: {whisper_cache}")
+
+# Check CUDA availability and handle cuDNN issues
+import torch
+cuda_available = False
 try:
-    # Try CUDA first with cache directory
-    asr_model = WhisperModel(asr_model_name, device="cuda", compute_type="float16", download_root=whisper_cache)
-    logger.info("✅ ASR model loaded successfully (GPU)")
+    if torch.cuda.is_available():
+        # Test CUDA functionality
+        test_tensor = torch.tensor([1.0]).cuda()
+        cuda_available = True
+        logger.info(f"🎮 CUDA available: {torch.cuda.get_device_name(0)}")
+    else:
+        logger.info("🔄 CUDA not available, using CPU")
+except Exception as e:
+    logger.warning(f"⚠️ CUDA test failed: {e}")
+    cuda_available = False
+
+try:
+    if cuda_available:
+        # Try CUDA first with cache directory
+        asr_model = WhisperModel(asr_model_name, device="cuda", compute_type="float16", download_root=whisper_cache)
+        logger.info("✅ ASR model loaded successfully (GPU)")
+    else:
+        raise Exception("CUDA not available")
 except Exception as e:
     logger.warning(f"⚠️ Failed to load ASR model on GPU: {e}")
     logger.info("🔄 Falling back to CPU...")
