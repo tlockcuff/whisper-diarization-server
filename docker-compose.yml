@@ -3,6 +3,7 @@ services:
     build:
       context: .
       args:
+        HF_TOKEN: ${HF_TOKEN}
         ASR_MODEL: ${ASR_MODEL}
         DIARIZATION_MODEL: ${DIARIZATION_MODEL}
     container_name: stt-server
