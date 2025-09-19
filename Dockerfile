@@ -1,5 +1,5 @@
-# Use PyTorch official image with CUDA 12.x and cuDNN 9.x for latest package compatibility
-FROM pytorch/pytorch:2.4.0-cuda12.4-cudnn9-runtime
+# Use NVIDIA PyTorch container with broader GPU architecture support
+FROM nvcr.io/nvidia/pytorch:24.08-py3
 
 # Configure timezone to prevent interactive prompts
 ENV DEBIAN_FRONTEND=noninteractive
