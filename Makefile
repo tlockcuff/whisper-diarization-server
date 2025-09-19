@@ -1,13 +1,15 @@
-.PHONY: help install setup download-models run dev test clean docker-build docker-run docker-stop logs shell
+.PHONY: help venv install setup download-models run dev test clean docker-build docker-run docker-stop logs shell activate
 
 # Default target
 help:
 	@echo "Whisper Diarization Server - Available commands:"
 	@echo ""
 	@echo "Setup & Installation:"
+	@echo "  venv            Create virtual environment"
 	@echo "  install         Install Python dependencies"
-	@echo "  setup           Full setup (install + download models)"
+	@echo "  setup           Full setup (venv + install + download models)"
 	@echo "  download-models Download and cache ML models"
+	@echo "  activate        Show command to activate virtual environment"
 	@echo ""
 	@echo "Development:"
 	@echo "  run             Run the server in production mode"
@@ -22,31 +24,50 @@ help:
 	@echo "  logs            View application logs"
 	@echo "  shell           Open shell in running container"
 	@echo ""
+	@echo "Troubleshooting:"
+	@echo "  check-deps      Check if dependencies are available"
+	@echo "  info            Show system information"
+	@echo ""
 	@echo "For more information, see README.md"
+
+# Virtual environment management
+activate:
+	@echo "To activate the virtual environment, run:"
+	@echo "source $(VENV_DIR)/bin/activate"
+
+# Virtual environment
+VENV_DIR := venv
+PYTHON := $(VENV_DIR)/bin/python
+PIP := $(VENV_DIR)/bin/pip
 
 # Setup and installation
 install:
 	@echo "Installing Python dependencies..."
-	pip install -r requirements.txt
+	@if [ ! -d "$(VENV_DIR)" ]; then \
+		echo "Creating virtual environment..."; \
+		python3 -m venv $(VENV_DIR); \
+	fi
+	$(PIP) install --upgrade pip
+	$(PIP) install -r requirements.txt
 
 setup: install download-models
 
 download-models:
 	@echo "Downloading models..."
-	python download_models.py --whisper-model large-v2 --pyannote-model pyannote/speaker-diarization-3.1
+	$(PYTHON) download_models.py --whisper-model large-v2 --pyannote-model pyannote/speaker-diarization-3.1
 
 # Development commands
 run:
 	@echo "Starting server in production mode..."
-	python app/main.py
+	$(PYTHON) app/main.py
 
 dev:
 	@echo "Starting server in development mode..."
-	python app/main.py --debug
+	$(PYTHON) app/main.py --debug
 
 test:
 	@echo "Running tests..."
-	pytest
+	$(PYTHON) -m pytest
 
 # Cleanup
 clean:
@@ -94,7 +115,7 @@ preload-models: download-models
 # Development helpers
 check-deps:
 	@echo "Checking dependencies..."
-	python -c "import torch, whisper, pyannote.audio; print('✓ All dependencies available')"
+	$(PYTHON) -c "import torch, whisper, pyannote.audio; print('✓ All dependencies available')"
 
 info:
 	@echo "System Information:"

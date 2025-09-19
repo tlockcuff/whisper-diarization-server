@@ -45,6 +45,9 @@ cd whisper-diarization-server
 make install
 
 # Or manually
+python3 -m venv venv
+source venv/bin/activate
+pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
@@ -77,11 +80,14 @@ make dev
 # Production mode
 make run
 
-# Or manually
+# Or manually (after activating virtual environment)
+source venv/bin/activate
 python app/main.py
 ```
 
 The server will start on `http://localhost:8000`
+
+**Note:** Makefile commands automatically use the virtual environment, so you don't need to manually activate it for `make` commands.
 
 ## API Usage
 
@@ -266,6 +272,20 @@ make check-deps    # Check dependencies
    - Check `nvidia-smi` command works
    - Set `USE_GPU=false` to force CPU mode
 
+### Virtual Environment Issues
+
+If you encounter "externally-managed-environment" errors when installing packages:
+
+```bash
+# The Makefile handles this automatically
+make install
+
+# Or create virtual environment manually
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+```
+
 ### Getting Help
 
 ```bash
@@ -273,9 +293,10 @@ make check-deps    # Check dependencies
 make info
 
 # Test hardware detection
-python -c "from app.hardware_detector import detect_hardware; print(detect_hardware())"
+make check-deps
 
-# Test model loading
+# Test model loading (after activating venv)
+source venv/bin/activate
 python -c "from app.model_loader import get_models; get_models()"
 ```
 
