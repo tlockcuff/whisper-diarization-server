@@ -6,8 +6,8 @@ services:
         - ASR_MODEL=${ASR_MODEL:-base}
         - DIARIZATION_MODEL=${DIARIZATION_MODEL:-pyannote/speaker-diarization-3.1}
         - HF_TOKEN=${HF_TOKEN}
-        - CUDA_IMAGE_TAG=${CUDA_IMAGE_TAG:-12.3.2-cudnn9-devel-ubuntu22.04}
-        - TORCH_CUDA_TAG=${TORCH_CUDA_TAG:-cu121}
+        - CUDA_IMAGE_TAG=${CUDA_IMAGE_TAG:-12.4.1-cudnn-devel-ubuntu22.04}
+        - TORCH_CUDA_TAG=${TORCH_CUDA_TAG:-cu124}
     restart: unless-stopped
     ports:
       - "8000:8000"
