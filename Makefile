@@ -1,4 +1,4 @@
-.PHONY: help docker-run docker-dev docker-stop logs shell docker-clean download-models-dev docker-build
+.PHONY: help docker-run docker-run-cpu docker-dev docker-stop logs shell docker-clean download-models-dev docker-build docker-build-cpu
 
 # Default target
 help:
@@ -6,13 +6,16 @@ help:
 	@echo "================================================="
 	@echo ""
 	@echo "🚀 Quick Start (Ubuntu 24.04):"
-	@echo "  make docker-run          # Start production server"
+	@echo "  make docker-run          # Start production server (GPU)"
+	@echo "  make docker-run-cpu      # Start CPU-only server"
 	@echo "  make docker-dev          # Start development server"
 	@echo "  make docker-stop         # Stop all containers"
 	@echo ""
 	@echo "📦 Docker Commands:"
-	@echo "  docker-build             # Build Docker image"
-	@echo "  docker-run               # Run production server"
+	@echo "  docker-build             # Build GPU Docker image"
+	@echo "  docker-build-cpu         # Build CPU-only image"
+	@echo "  docker-run               # Run production server (GPU)"
+	@echo "  docker-run-cpu           # Run CPU-only server"
 	@echo "  docker-dev               # Run development server"
 	@echo "  docker-stop              # Stop all containers"
 	@echo "  logs                     # View application logs"
@@ -23,7 +26,7 @@ help:
 	@echo "  download-models-dev      # Download models in container"
 	@echo ""
 	@echo "💡 Tips:"
-	@echo "  - All commands use Docker (no OS dependencies needed)"
+	@echo "  - Use docker-run-cpu if you don't have NVIDIA GPU"
 	@echo "  - Models are cached in ./cache directory"
 	@echo "  - Use 'make logs' to monitor the server"
 	@echo "  - Server will be available at http://localhost:8000"
@@ -70,6 +73,24 @@ download-models-dev:
 docker-build:
 	@echo "🔨 Building Docker image..."
 	docker compose build
+
+docker-build-cpu:
+	@echo "🔨 Building CPU-only Docker image..."
+	docker build -f Dockerfile.fallback -t whisper-diarization-server:cpu .
+
+docker-run-cpu:
+	@echo "🐳 Starting CPU-only Whisper Diarization Server..."
+	@echo "📡 Server will be available at: http://localhost:8000"
+	@echo "⚠️  CPU-only mode (no GPU acceleration)"
+	@echo ""
+	docker run -d --name whisper-server-cpu \
+		-p 8000:8000 \
+		-v ./cache:/app/cache \
+		-e USE_GPU=false \
+		-e WHISPER_MODEL=medium \
+		whisper-diarization-server:cpu
+	@echo ""
+	@echo "✅ CPU server started! Check logs with: docker logs -f whisper-server-cpu"
 
 docker-clean:
 	@echo "🧹 Cleaning Docker containers and images..."

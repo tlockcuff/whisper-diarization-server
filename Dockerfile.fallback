@@ -1,5 +1,8 @@
-# Multi-stage build for Ubuntu 24.04 compatibility
-FROM nvidia/cuda:12.1-devel-ubuntu22.04 AS base
+# Fallback Dockerfile - CPU only (no CUDA)
+FROM python:3.11-slim
+
+# Set working directory
+WORKDIR /app
 
 # Avoid prompts from apt
 ENV DEBIAN_FRONTEND=noninteractive
@@ -25,35 +28,16 @@ ENV PATH="/opt/venv/bin:$PATH"
 # Set Python to use system packages for some core libs
 RUN pip install --no-cache-dir --upgrade pip wheel setuptools
 
-# Install PyTorch with CUDA support
+# Install PyTorch (CPU version)
 RUN pip install --no-cache-dir \
     torch==2.4.1 \
     torchvision==0.19.1 \
     torchaudio==2.4.1 \
-    --index-url https://download.pytorch.org/whl/cu121
+    --index-url https://download.pytorch.org/whl/cpu
 
 # Install other dependencies
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
-
-# Production image
-FROM nvidia/cuda:12.1-runtime-ubuntu22.04
-
-# Avoid prompts from apt
-ENV DEBIAN_FRONTEND=noninteractive
-
-# Install runtime dependencies only
-RUN apt-get update && apt-get install -y \
-    python3.11 \
-    ffmpeg \
-    && rm -rf /var/lib/apt/lists/*
-
-# Copy virtual environment from base stage
-COPY --from=base /opt/venv /opt/venv
-ENV PATH="/opt/venv/bin:$PATH"
-
-# Set working directory
-WORKDIR /app
 
 # Copy application code
 COPY app/ ./app/
@@ -71,7 +55,7 @@ USER app
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONPATH=/app
 ENV HOME=/home/app
-ENV CUDA_VISIBLE_DEVICES=0
+ENV USE_GPU=false
 
 # Expose port
 EXPOSE 8000
