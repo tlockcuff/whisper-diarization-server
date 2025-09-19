@@ -38,7 +38,7 @@ docker-run:
 	@echo "📝 API docs: http://localhost:8000/docs"
 	@echo ""
 	@echo "🔄 Building and starting containers..."
-	docker-compose up -d
+	docker compose up -d
 	@echo ""
 	@echo "✅ Server started! Check logs with: make logs"
 
@@ -47,33 +47,33 @@ docker-dev:
 	@echo "📡 Development server will be at: http://localhost:8001"
 	@echo "🔧 Live reload enabled"
 	@echo ""
-	docker-compose --profile dev up -d
+	docker compose --profile dev up -d
 	@echo ""
 	@echo "✅ Development server started!"
 
 docker-stop:
 	@echo "🛑 Stopping all containers..."
-	docker-compose down
+	docker compose down
 
 logs:
 	@echo "📋 Showing application logs..."
-	docker-compose logs -f
+	docker compose logs -f
 
 shell:
 	@echo "🐚 Opening shell in container..."
-	docker-compose exec whisper-diarization-server /bin/bash
+	docker compose exec whisper-diarization-server /bin/bash
 
 download-models-dev:
 	@echo "📥 Downloading models in container..."
-	docker-compose run --rm whisper-diarization-server-dev python download_models.py --whisper-model large-v2 --pyannote-model pyannote/speaker-diarization-3.1
+	docker compose run --rm whisper-diarization-server-dev python download_models.py --whisper-model large-v2 --pyannote-model pyannote/speaker-diarization-3.1
 
 docker-build:
 	@echo "🔨 Building Docker image..."
-	docker-compose build
+	docker compose build
 
 docker-clean:
 	@echo "🧹 Cleaning Docker containers and images..."
-	docker-compose down --volumes --remove-orphans
+	docker compose down --volumes --remove-orphans
 	docker system prune -f
 	docker image prune -f
 
