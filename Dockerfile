@@ -1,6 +1,6 @@
-FROM nvidia/cuda:12.4.1-cudnn9-devel-ubuntu22.04
+FROM nvidia/cuda:12.4-devel-ubuntu22.04
 
-# Install system dependencies
+# Install system dependencies including CuDNN
 RUN apt-get update && apt-get install -y \
     python3 \
     python3-pip \
@@ -11,7 +11,12 @@ RUN apt-get update && apt-get install -y \
     libsox-fmt-all \
     build-essential \
     python3-dev \
+    libcudnn8-dev \
+    libcudnn8 \
     && rm -rf /var/lib/apt/lists/*
+
+# Set CuDNN library path
+ENV LD_LIBRARY_PATH=/usr/lib/x86_64-linux-gnu:${LD_LIBRARY_PATH}
 
 # Set working directory
 WORKDIR /app
