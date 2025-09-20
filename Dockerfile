@@ -1,19 +1,21 @@
-FROM nvidia/cuda:11.8-cudnn8-devel-ubuntu20.04
+FROM nvidia/cuda:11.6-cudnn8-runtime-ubuntu20.04
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
     python3 \
     python3-pip \
-    ffmpeg \
-    git \
-    cython3 \
-    sox \
-    libsox-fmt-all \
-    build-essential \
     python3-dev \
+    build-essential \
+    git \
+    ffmpeg \
     && rm -rf /var/lib/apt/lists/*
 
-# Set CuDNN library path
+# Install additional development libraries
+RUN apt-get update && apt-get install -y \
+    libcudnn8-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set library paths
 ENV LD_LIBRARY_PATH=/usr/lib/x86_64-linux-gnu:${LD_LIBRARY_PATH}
 
 # Set working directory
@@ -26,7 +28,7 @@ RUN pip3 install --cache-dir /root/.cache/pip --no-cache-dir -r requirements.txt
 # Clone and install whisper-diarization
 RUN git clone https://github.com/MahmoudAshraf97/whisper-diarization.git /whisper-diarization
 WORKDIR /whisper-diarization
-# Install CUDA runtime dependencies for CUDA 11.8 compatibility
+# Install CUDA runtime dependencies for CUDA 11.6 compatibility
 RUN pip3 install --cache-dir /root/.cache/pip nvidia-cuda-runtime-cu11 nvidia-cudnn-cu116
 RUN pip3 install --cache-dir /root/.cache/pip numpy
 RUN pip3 install --cache-dir /root/.cache/pip -c constraints.txt -r requirements.txt
