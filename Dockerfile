@@ -1,4 +1,4 @@
-FROM nvidia/cuda:12.4.1-runtime-ubuntu22.04
+FROM nvidia/cuda:12.4.1-cudnn9-devel-ubuntu22.04
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
@@ -23,6 +23,8 @@ RUN pip3 install --cache-dir /root/.cache/pip --no-cache-dir -r requirements.txt
 # Clone and install whisper-diarization
 RUN git clone https://github.com/MahmoudAshraf97/whisper-diarization.git /whisper-diarization
 WORKDIR /whisper-diarization
+# Install CUDA runtime dependencies
+RUN pip3 install --cache-dir /root/.cache/pip nvidia-cuda-runtime-cu12 nvidia-cudnn-cu12
 RUN pip3 install --cache-dir /root/.cache/pip numpy
 RUN pip3 install --cache-dir /root/.cache/pip -c constraints.txt -r requirements.txt
 # Clone ctc-forced-aligner
