@@ -84,6 +84,11 @@ async def transcribe_audio(
             else:
                 logger.info("Diarization process completed successfully")
 
+            # Clean up temporary file after process completes
+            if os.path.exists(audio_path):
+                os.unlink(audio_path)
+                logger.info(f"Cleaned up temporary file: {audio_path}")
+
         # For now, stream as text/plain
         # In future, can format as SSE or JSON chunks if needed
         return StreamingResponse(
@@ -94,11 +99,11 @@ async def transcribe_audio(
 
     except Exception as e:
         logger.error(f"Exception in transcribe_audio: {str(e)}", exc_info=True)
-        return JSONResponse(status_code=500, content={"error": str(e)})
-    finally:
+        # Clean up temporary file on exception
         if os.path.exists(audio_path):
             os.unlink(audio_path)
             logger.info(f"Cleaned up temporary file: {audio_path}")
+        return JSONResponse(status_code=500, content={"error": str(e)})
 
 if __name__ == "__main__":
     import uvicorn
