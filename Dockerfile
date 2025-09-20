@@ -9,6 +9,8 @@ RUN apt-get update && apt-get install -y \
     cython3 \
     sox \
     libsox-fmt-all \
+    build-essential \
+    python3-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Set working directory
