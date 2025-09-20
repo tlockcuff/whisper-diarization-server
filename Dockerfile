@@ -1,4 +1,4 @@
-FROM nvidia/cuda:11.8-devel-ubuntu22.04
+FROM nvidia/cuda:11.8-cudnn8-devel-ubuntu20.04
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
@@ -11,12 +11,6 @@ RUN apt-get update && apt-get install -y \
     libsox-fmt-all \
     build-essential \
     python3-dev \
-    && rm -rf /var/lib/apt/lists/*
-
-# Install CuDNN separately for CUDA 11.8
-RUN apt-get update && apt-get install -y \
-    libcudnn8-dev \
-    libcudnn8 \
     && rm -rf /var/lib/apt/lists/*
 
 # Set CuDNN library path
@@ -33,7 +27,7 @@ RUN pip3 install --cache-dir /root/.cache/pip --no-cache-dir -r requirements.txt
 RUN git clone https://github.com/MahmoudAshraf97/whisper-diarization.git /whisper-diarization
 WORKDIR /whisper-diarization
 # Install CUDA runtime dependencies for CUDA 11.8 compatibility
-RUN pip3 install --cache-dir /root/.cache/pip nvidia-cuda-runtime-cu11 nvidia-cudnn-cu11
+RUN pip3 install --cache-dir /root/.cache/pip nvidia-cuda-runtime-cu11 nvidia-cudnn-cu116
 RUN pip3 install --cache-dir /root/.cache/pip numpy
 RUN pip3 install --cache-dir /root/.cache/pip -c constraints.txt -r requirements.txt
 # Clone ctc-forced-aligner
