@@ -41,7 +41,8 @@ async def transcribe_audio(
         # Build command for diarization
         cmd = [
             "python3", "/whisper-diarization/diarize.py",
-            "-a", audio_path
+            "-a", audio_path,
+            "--no-stem"  # Disable source splitting to avoid temporary file issues
         ]
         if language:
             cmd.extend(["--language", language])
