@@ -1,47 +1,20 @@
-# Docker Compose for Whisper Diarization Server
+version: '3.8'
 
 services:
-  whisper-diarization-server:
-    build:
-      context: .
-      dockerfile: Dockerfile
+  server:
+    build: .
     ports:
       - "8000:8000"
     volumes:
-      - ./cache:/app/cache
-    environment:
-      - SERVER_HOST=0.0.0.0
-      - SERVER_PORT=8000
-      - USE_GPU=true
-      - WHISPER_MODEL=${WHISPER_MODEL:-large-v2}
-      - PYANNOTE_MODEL=${PYANNOTE_MODEL:-pyannote/speaker-diarization-3.1}
-      - CACHE_DIR=/app/cache
-      - LOG_LEVEL=INFO
-      - ENABLE_STREAMING=true
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
+      - .:/app
     deploy:
       resources:
         reservations:
           devices:
             - driver: nvidia
-              count: all
+              count: all  # Use all available GPUs, or specify 2
               capabilities: [gpu]
-
-  # Optional Redis for caching
-  redis:
-    image: redis:7-alpine
-    ports:
-      - "6379:6379"
-    volumes:
-      - redis_data:/data
-    command: redis-server --appendonly yes
-    profiles: ["with-redis"]
-
-volumes:
-  redis_data:
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+    stdin_open: true
+    tty: true
