@@ -7,6 +7,8 @@ RUN apt-get update && apt-get install -y \
     ffmpeg \
     git \
     cython3 \
+    sox \
+    libsox-fmt-all \
     && rm -rf /var/lib/apt/lists/*
 
 # Set working directory
@@ -19,6 +21,7 @@ RUN pip3 install --no-cache-dir -r requirements.txt
 # Clone and install whisper-diarization
 RUN git clone https://github.com/MahmoudAshraf97/whisper-diarization.git /whisper-diarization
 WORKDIR /whisper-diarization
+RUN pip3 install --no-cache-dir numpy
 RUN pip3 install --no-cache-dir -c constraints.txt -r requirements.txt
 # Download models on build if possible, but may need runtime
 RUN python3 -c "import whisper; whisper.load_model('base')" || true
