@@ -27,7 +27,7 @@ RUN pip3 install --cache-dir /root/.cache/pip numpy
 RUN pip3 install --cache-dir /root/.cache/pip -c constraints.txt -r requirements.txt
 # Build and install local ctc_forced_aligner from source
 WORKDIR /whisper-diarization/ctc_forced_aligner
-RUN python setup.py build_ext --inplace
+RUN python3 setup.py build_ext --inplace
 RUN pip3 install --cache-dir /root/.cache/pip .
 WORKDIR /whisper-diarization
 # Download models on build if possible, but may need runtime
