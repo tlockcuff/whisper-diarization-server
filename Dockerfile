@@ -27,13 +27,17 @@ RUN pip3 install --cache-dir /root/.cache/pip numpy
 RUN pip3 install --cache-dir /root/.cache/pip -c constraints.txt -r requirements.txt
 # Clone ctc-forced-aligner
 RUN git clone https://github.com/MahmoudAshraf97/ctc-forced-aligner.git /ctc-forced-aligner
+WORKDIR /ctc-forced-aligner
+# Install dependencies for ctc_forced_aligner
+RUN pip3 install --cache-dir /root/.cache/pip -r requirements.txt
 # Build and install local ctc_forced_aligner from source
-RUN cd /ctc-forced-aligner && python3 setup.py build_ext --inplace
-RUN cd /ctc-forced-aligner && pip3 install --cache-dir /root/.cache/pip .
+RUN python3 setup.py build_ext --inplace
+RUN pip3 install --cache-dir /root/.cache/pip .
+WORKDIR /whisper-diarization
 # Download models on build if possible, but may need runtime
 RUN python3 -c "import whisper; whisper.load_model('base')" || true
 # Test the import to ensure it works
-RUN python3 -c "from ctc_forced_aligner import generate_emissions; print('ctc_forced_aligner import successful')" || exit 1
+RUN PYTHONPATH=/ctc-forced-aligner:$PYTHONPATH python3 -c "from ctc_forced_aligner import generate_emissions; print('ctc_forced_aligner import successful')" || exit 1
 WORKDIR /app
 
 # Copy app code
