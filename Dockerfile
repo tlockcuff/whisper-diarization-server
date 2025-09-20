@@ -25,9 +25,11 @@ RUN git clone https://github.com/MahmoudAshraf97/whisper-diarization.git /whispe
 WORKDIR /whisper-diarization
 RUN pip3 install --cache-dir /root/.cache/pip numpy
 RUN pip3 install --cache-dir /root/.cache/pip -c constraints.txt -r requirements.txt
+# Clone ctc-forced-aligner
+RUN git clone https://github.com/MahmoudAshraf97/ctc-forced-aligner.git /ctc-forced-aligner
 # Build and install local ctc_forced_aligner from source
-RUN cd ctc_forced_aligner && python3 setup.py build_ext --inplace
-RUN cd ctc_forced_aligner && pip3 install --cache-dir /root/.cache/pip .
+RUN cd /ctc-forced-aligner && python3 setup.py build_ext --inplace
+RUN cd /ctc-forced-aligner && pip3 install --cache-dir /root/.cache/pip .
 # Download models on build if possible, but may need runtime
 RUN python3 -c "import whisper; whisper.load_model('base')" || true
 # Test the import to ensure it works
@@ -41,4 +43,4 @@ COPY app/ ./app/
 EXPOSE 8000
 
 # Run the server
-CMD ["sh", "-c", "export PYTHONPATH=/whisper-diarization:${PYTHONPATH}; uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"]
+CMD ["sh", "-c", "export PYTHONPATH=/whisper-diarization:/ctc-forced-aligner:${PYTHONPATH}; uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"]
