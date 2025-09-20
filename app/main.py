@@ -40,7 +40,7 @@ async def transcribe_audio(
     try:
         # Build command for diarization
         cmd = [
-            "python", "/whisper-diarization/diarize.py",
+            "python3", "/whisper-diarization/diarize.py",
             "-a", audio_path
         ]
         if language:
