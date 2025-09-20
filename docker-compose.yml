@@ -1,3 +1,5 @@
+version: '3.8'
+
 services:
   server:
     container_name: whisper-diarization-server
@@ -6,6 +8,7 @@ services:
       - "8000:8000"
     volumes:
       - .:/app
+      - ./pip-cache:/root/.cache/pip
     deploy:
       resources:
         reservations:
