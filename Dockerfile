@@ -1,5 +1,8 @@
 FROM onerahmet/openai-whisper-asr-webservice:latest-gpu
 
+# Mitigate resolver assertion error when installing complex dependency trees
+RUN python -m pip install --upgrade pip
+
 # Install compatible PyTorch for RTX 5060 Ti (sm_120, CUDA 12.8)
 RUN pip uninstall -y torch torchaudio torchvision
 RUN pip install torch==2.7.1+cu128 --index-url https://download.pytorch.org/whl/cu128
