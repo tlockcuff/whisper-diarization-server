@@ -1,55 +1,17 @@
-FROM nvidia/cuda:11.8-devel-ubuntu22.04
+FROM onerahmet/openai-whisper-asr-webservice:latest-gpu
 
-# Install system dependencies including CuDNN
-RUN apt-get update && apt-get install -y \
-    python3 \
-    python3-pip \
-    python3-dev \
-    build-essential \
-    git \
-    ffmpeg \
-    wget \
-    libcudnn8-dev \
-    libcudnn8 \
-    && rm -rf /var/lib/apt/lists/*
+# Install compatible PyTorch for RTX 5060 Ti (sm_120, CUDA 12.8)
+RUN pip uninstall -y torch torchaudio torchvision
+RUN pip install torch==2.7.1+cu128 --index-url https://download.pytorch.org/whl/cu128
 
-# Set CuDNN library path
-ENV LD_LIBRARY_PATH=/usr/lib/x86_64-linux-gnu:${LD_LIBRARY_PATH}
+# Ensure pyannote.audio is compatible (downgrade to avoid version mismatch warnings)
+RUN pip install pyannote.audio==2.1.1
 
-# Set working directory
-WORKDIR /app
+# Clean up pip cache to reduce image size
+RUN pip cache purge
 
-# Copy requirements and install Python deps
-COPY requirements.txt .
-RUN pip3 install --cache-dir /root/.cache/pip --no-cache-dir -r requirements.txt
-
-# Clone and install whisper-diarization
-RUN git clone https://github.com/MahmoudAshraf97/whisper-diarization.git /whisper-diarization
-WORKDIR /whisper-diarization
-# Install CUDA runtime dependencies
-RUN pip3 install --cache-dir /root/.cache/pip nvidia-cuda-runtime-cu11 nvidia-cudnn-cu116
-RUN pip3 install --cache-dir /root/.cache/pip numpy
-RUN pip3 install --cache-dir /root/.cache/pip -c constraints.txt -r requirements.txt
-# Clone ctc-forced-aligner
-RUN git clone https://github.com/MahmoudAshraf97/ctc-forced-aligner.git /ctc-forced-aligner
-WORKDIR /ctc-forced-aligner
-# Install dependencies for ctc_forced_aligner
-RUN pip3 install --cache-dir /root/.cache/pip -r requirements.txt
-# Build and install local ctc_forced_aligner from source
-RUN python3 setup.py build_ext --inplace
-RUN pip3 install --cache-dir /root/.cache/pip .
-WORKDIR /whisper-diarization
-# Download models on build if possible, but may need runtime
-RUN python3 -c "import whisper; whisper.load_model('base')" || true
-# Test the import to ensure it works
-RUN PYTHONPATH=/ctc-forced-aligner:$PYTHONPATH python3 -c "from ctc_forced_aligner import generate_emissions; print('ctc_forced_aligner import successful')" || exit 1
-WORKDIR /app
-
-# Copy app code
-COPY app/ ./app/
-
-# Expose port
-EXPOSE 8000
-
-# Run the server
-CMD ["sh", "-c", "export PYTHONPATH=/whisper-diarization:/ctc-forced-aligner:${PYTHONPATH}; uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"]
+# Set environment variables for runtime
+ENV ASR_MODEL=large-v3
+ENV ASR_ENGINE=whisperx
+ENV HF_HUB_DISABLE_SYMLINKS_WARNING=true
+ENV ASR_DEVICE=cuda
