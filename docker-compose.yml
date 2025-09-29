@@ -1,16 +1,20 @@
 services:
-  stt-server:
+  stt-service:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: whisper-stt-server
+    container_name: stt-service
     ports:
-      - "9001:9000" # API accessible at http://localhost:9001
+      - "9001:9000"
     environment:
-      - HF_TOKEN= # Replace with your Hugging Face token
+      TRANSCRIBE_DEVICE: cuda
+      WHISPER_MODEL_SIZE: large-v3
+      HF_TOKEN: ${HF_TOKEN:-}
+      ENABLE_DIARIZATION: "true"
     volumes:
-      - ./cache:/root/.cache # Persists model cache
-    restart: unless-stopped
+      - ./cache/hf:/root/.cache/huggingface
+      - ./cache/pyannote:/root/.cache/pyannote
+      - ./cache/whisper:/root/.cache/whisper
     deploy:
       resources:
         reservations:
@@ -18,3 +22,4 @@ services:
             - driver: nvidia
               count: all
               capabilities: [gpu]
+
